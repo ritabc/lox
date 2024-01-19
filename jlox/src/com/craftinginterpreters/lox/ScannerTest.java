@@ -3,6 +3,7 @@ package com.craftinginterpreters.lox;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -130,6 +131,53 @@ class ScannerTest
 
         checkTokenTypes(tokensLeading, expectedTokenTypesLeading);
     }
+
+    @Test
+    void keywords() {
+        Scanner scanner = new Scanner("and class else false for fun if nil or print return super this true var while");
+        List<Token> tokens = scanner.scanTokens();
+        List<TokenType> expectedTokenTypes = Arrays.asList(TokenType.AND, TokenType.CLASS, TokenType.ELSE, TokenType.FALSE, TokenType.FOR, TokenType.FUN, TokenType.IF, TokenType.NIL, TokenType.OR, TokenType.PRINT, TokenType.RETURN, TokenType.SUPER, TokenType.THIS, TokenType.TRUE, TokenType.VAR, TokenType.WHILE, TokenType.EOF);
+
+        checkTokenTypes(tokens, expectedTokenTypes);
+    }
+
+    @Test
+    void blockComments() {
+        // one line
+        Scanner oneLineScanner = new Scanner("var x = 123 /* */ + 456");
+        List<Token> oneLineTokens = oneLineScanner.scanTokens();
+
+        List<TokenType> expectedTokenTypesOneLine = Arrays.asList(TokenType.VAR, TokenType.IDENTIFIER, TokenType.EQUAL, TokenType.NUMBER, TokenType.PLUS, TokenType.NUMBER, TokenType.EOF);
+
+        checkTokenTypes(oneLineTokens, expectedTokenTypesOneLine);
+        assertEquals(oneLineTokens.get(0).line, 1);
+        assertEquals(oneLineTokens.get(oneLineTokens.size()-1).line, 1);
+
+        // multiple lines
+        Scanner multiLineScanner = new Scanner("var x = 123 /*\n\n*/ + 456");
+        List<Token> multiLineTokens = multiLineScanner.scanTokens();
+
+        List<TokenType> expectedTokenTypesMultiLine = Arrays.asList(TokenType.VAR, TokenType.IDENTIFIER, TokenType.EQUAL, TokenType.NUMBER, TokenType.PLUS, TokenType.NUMBER, TokenType.EOF);
+
+        checkTokenTypes(multiLineTokens, expectedTokenTypesMultiLine);
+        assertEquals(1, multiLineTokens.get(0).line);
+        assertEquals(3, multiLineTokens.get(multiLineTokens.size()-3).line);
+
+        // "/* a comment with an asterisk at the end **/"
+        Scanner endsWithAsteriskScanner = new Scanner("123 /* a comment with an asterisk at the end **/");
+        List<Token> endsWithAsteriskTokens = endsWithAsteriskScanner.scanTokens();
+
+        List<TokenType> expectedEndsWithAsteriskTokens = Arrays.asList(TokenType.NUMBER, TokenType.EOF);
+        checkTokenTypes(endsWithAsteriskTokens, expectedEndsWithAsteriskTokens);
+
+        // "/* an unterminated comment"
+        Scanner unterminatedCommentScanner = new Scanner("/* an unterminated comment");
+        List<Token> unterminatedCommentTokens = unterminatedCommentScanner.scanTokens();
+
+        assertEquals("[line 1] Error: Unterminated multi-line comment.\n", errContent.toString());
+    }
+
+
 
     private void checkTokenTypes(List<Token> tokens, List<TokenType> expectedTypes) {
         assertEquals(tokens.size(), expectedTypes.size());
