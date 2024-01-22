@@ -49,13 +49,13 @@ factor   -> unary ( ( "/" | "*" ) unary )* ;
 
 # Syntactical Grammar
 ```
-expression   -> equality ;
+expression   -> ternary ;
+ternary      -> equality ("?" equality ":" equality )* ;     // right-assoc
 equality     -> comparison ( ( "!=" | "==" ) comparison )* ; 
 comparison   -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term         -> factor ( ( "-" | "+" ) factor )* ;
 factor       -> unary ( ( "/" | "*" ) unary )* ;
-unary        -> ( "!" "-" ) unary 
-             | primary ;
+unary        -> (( "!" "-" ) unary) | primary                // right-assoc
 primary      -> NUMBER | STRING | "true" | "false" | "nil" 
              | "(" expression ")" ;
 ```

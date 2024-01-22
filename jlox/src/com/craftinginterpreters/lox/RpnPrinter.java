@@ -6,6 +6,11 @@ public class RpnPrinter implements Expr.Visitor<String> {
     }
 
     @Override
+    public String visitTernaryExpr(Expr.Ternary expr) {
+        return expr.check.accept(this) + " " + expr.ifExpr.accept(this) + " " + expr.elseExpr.accept(this) + " ?:";
+    }
+
+    @Override
     public String visitBinaryExpr(Expr.Binary expr) {
         return expr.left.accept(this) + " " + expr.right.accept(this) + " " + expr.operator.lexeme;
     }

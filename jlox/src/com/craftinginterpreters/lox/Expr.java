@@ -1,14 +1,35 @@
+// An auto generated file. See GenerateAst.java
+
 package com.craftinginterpreters.lox;
 
 abstract class Expr {
 
   interface Visitor<R> {
+    R visitTernaryExpr(Ternary expr);
     R visitBinaryExpr(Binary expr);
     R visitGroupingExpr(Grouping expr);
     R visitLiteralExpr(Literal expr);
     R visitUnaryExpr(Unary expr);
   }
+
   abstract <R> R accept(Visitor<R> visitor);
+
+  static class Ternary extends Expr {
+    Ternary(Expr check, Expr ifExpr, Expr elseExpr){
+     this.check = check;
+     this.ifExpr = ifExpr;
+     this.elseExpr = elseExpr;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitTernaryExpr(this);
+    }
+
+    final Expr check;
+    final Expr ifExpr;
+    final Expr elseExpr;
+  }
 
   static class Binary extends Expr {
     Binary(Expr left, Token operator, Expr right){
@@ -67,4 +88,5 @@ abstract class Expr {
     final Token operator;
     final Expr right;
   }
+
 }
