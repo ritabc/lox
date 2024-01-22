@@ -3,7 +3,6 @@ package com.craftinginterpreters.lox;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -177,10 +176,26 @@ class ScannerTest
         assertEquals("[line 1] Error: Unterminated multi-line comment.\n", errContent.toString());
     }
 
+    @Test
+    void ternaryOperator() {
+        Scanner scanner = new Scanner("a == b ? c : d");
+        List<Token> tokens = scanner.scanTokens();
+
+        List<TokenType> expectedTokenTypes = Arrays.asList(TokenType.IDENTIFIER, TokenType.EQUAL_EQUAL, TokenType.IDENTIFIER, TokenType.QUESTION, TokenType.IDENTIFIER, TokenType.COLON, TokenType.IDENTIFIER, TokenType.EOF);
+
+        checkTokenTypes(tokens, expectedTokenTypes);
+    }
+
+    @Test
+    void openEndedPrimaryExprScan() {
+        List<Token> tokens = new Scanner("1 + ( 2 * 3").scanTokens();
+        new Parser(tokens).parse();
+        assertEquals("[line 1] Error at end: Expect ')' after expression.\n", errContent.toString());
+    }
 
 
     private void checkTokenTypes(List<Token> tokens, List<TokenType> expectedTypes) {
-        assertEquals(tokens.size(), expectedTypes.size());
+        assertEquals(expectedTypes.size(), tokens.size());
         for (int i = 0; i < tokens.size(); i++) {
             assertEquals(expectedTypes.get(i), tokens.get(i).type);
         }

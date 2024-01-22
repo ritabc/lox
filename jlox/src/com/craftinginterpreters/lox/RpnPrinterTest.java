@@ -16,5 +16,11 @@ public class RpnPrinterTest {
             new Expr.Literal("str")));
 
         assertEquals(new RpnPrinter().print(expression), "123 ~ str *");
+
+        Expr ternExpr = new Expr.Ternary(
+                new Expr.Literal(true), new Expr.Literal(123), new Expr.Literal("unseenString")
+        );
+
+        assertEquals(new RpnPrinter().print(ternExpr), "true 123 unseenString ?:");
     }
 }

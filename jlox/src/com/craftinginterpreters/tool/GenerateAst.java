@@ -18,6 +18,7 @@ public class GenerateAst
         String outputDir = args[0];
 
         defineAst(outputDir, "Expr", Arrays.asList(
+                "Ternary   : Expr check, Expr ifExpr, Expr elseExpr",
                 "Binary    : Expr left, Token operator, Expr right",
                 "Grouping  : Expr expression",
                 "Literal   : Object value",
@@ -33,8 +34,6 @@ public class GenerateAst
         writer.println();
 
         writer.println("package com.craftinginterpreters.lox;");
-        writer.println();
-        writer.println("import java.util.List;");
         writer.println();
         writer.println("abstract class " + baseName + " {");
         writer.println();

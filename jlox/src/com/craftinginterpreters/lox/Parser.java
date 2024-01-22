@@ -1,6 +1,5 @@
 package com.craftinginterpreters.lox;
 
-import javax.swing.*;
 import java.util.List;
 
 public class Parser {
@@ -29,7 +28,21 @@ public class Parser {
 
     // grammar rule: expression -> equality ;
     private Expr expression() {
-        return equality();
+        return ternary();
+    }
+
+    // right assoc grammar rule: ternary -> equality ("?" equality ":" equality )* ;
+    private Expr ternary() {
+        Expr expr = equality();
+
+        while (match(TokenType.QUESTION)) {
+            Expr ifExpr = equality();
+            consume(TokenType.COLON, "Expect ':' in ternary expression.");
+            Expr elseExpr = equality();
+            expr = new Expr.Ternary(expr, ifExpr, elseExpr);
+        }
+
+        return expr;
     }
 
     // Equality or anything of higher precedence (comparison, etc)
