@@ -1,16 +1,12 @@
 package com.craftinginterpreters.lox;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
 
 public class ErrorsTest {
     private final static ByteArrayOutputStream errContent = new ByteArrayOutputStream();
@@ -26,10 +22,15 @@ public class ErrorsTest {
         System.setErr(originalErr);
     }
 
+    @AfterEach
+    public void debug() {
+        errContent.reset();
+    }
+
     @Test
     void scanUnterminatedString() {
         Scanner scanner = new Scanner("\"abc");
-        List<Token> tokens = scanner.scanTokens();
+        scanner.scanTokens();
 
         assertEquals("[line 1] Error: Unterminated string.\n", errContent.toString());
     }
@@ -58,8 +59,23 @@ public class ErrorsTest {
 
     @Test
     void evaluateAdditionOfNumberToString() {
-        new Interpreter().interpret(new Parser(new Scanner("6 + \"four\"").scanTokens()).parse());
+        List<Stmt> stmts = new Parser(new Scanner("6 + \"four\";").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
         assertEquals("[line 1] Operands must be two numbers or two strings\n", errContent.toString());
+    }
+
+    @Test
+    void evaluateNegativeBoolean() {
+        List<Stmt> stmts = new Parser(new Scanner("-!!true;").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
+        assertEquals("[line 1] Operand must be a number.\n", errContent.toString());
+    }
+
+    @Test
+    void evaluateMultiplyStrings() {
+        List<Stmt> stmts = new Parser(new Scanner("\"abc\" * \"def\";").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
+        assertEquals("[line 1] Operands must be numbers.\n", errContent.toString());
     }
 
 }
