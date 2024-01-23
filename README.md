@@ -9,6 +9,7 @@
 1. Add parsing for expressions
 1. Add evaluator, again using the Visitor pattern
 1. Add support for statements, including expression statements and "print expr ;" statements
+1. Add support for global vars
 
 ### Additional features
 #### Shown with link to another branch if that was deemed necessary

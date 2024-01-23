@@ -37,6 +37,12 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
         return parenthesize(expr.operator.lexeme, expr.right);
     }
 
+    // `x` ==> `x`
+    @Override
+    public String visitVariableExpr(Expr.Variable expr) {
+        return expr.name.toString();
+    }
+
     /*
     What types of expression stmts are there, how to handle each?
     // `5 + 3 ;`               ==> `(+ 5 3);\n`
@@ -58,6 +64,12 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
     @Override
     public String visitPrintStmt(Stmt.Print stmt) {
         return "(print " + print(stmt.expression) + ");\n";
+    }
+
+    // `var x = 5;`  ==> `(var x 5)`
+    @Override
+    public String visitVarStmt(Stmt.Var stmt) {
+        return parenthesize(stmt.name.lexeme, stmt.initializer);
     }
 
     private String parenthesize(String name, Expr... exprs) {

@@ -39,16 +39,40 @@ factor  -> factor ( "/" | "*" ) unary
 ```
 Note: putting the recursive production on the left side makes the factor rule left-associative (`1 * 2 * 3` ==> `(1 * 2) * 3`)
 
-**Issue:** Having the 1st symbol in the body of the rule be the same as the head means the rule is left-recursive, which is a problem with some parsing techniques, including the one we'll use
-**Solution** Factor out the self-reference, redefining the `factor` rule to be a flat sequence of mults & divides
+**Issue:** Having the 1st symbol in the body of the rule be the same as the head (like with factor above) means the rule is left-recursive, which is a problem with some parsing techniques, including the one we'll use
+**Solution** "Factor" out the self-reference, redefining the `factor` rule to be a flat sequence of mults & divides
 ```
 factor   -> unary ( ( "/" | "*" ) unary )* ; 
 ```
 
+**Issue** We must disallow declarations (of vars, funcs, classes) in some places. For instance;
+```if (monday) var beverage = "espresso";```  
+causes confusion: 
+- Does beverage persist after the `if` stmt? 
+- If so, what is the value on days other than Monday? 
+- Does the var even exist on other days?
 
+Additionally, a func decl would not make sense either:
+```if (monday) func drinkCaffeine(beverage) {consume(beverage)}```
+**Solution** Borrow the 'precedence' concept. Block statements have the 'highest precedence', then general statements. Declarations have a 'lower precedence'. Basically, although declarations are technically a type of statement, since they are not allowed in some places, we stratify them. When we allow a "statement", as defined below, we actually cannot use a declaration for that. (Although the opposite is true)
+``` 
+program     -> declaration* EOF ;
+declaration -> varDecl | statement ; 
+statement   -> exprStmt | printStmt ;
+```
 
 # Syntactical Grammar
 ```
+
+program      -> declaration* EOF ;
+
+declaration  -> varDecl | statment;
+
+statement    -> exprStmt | printStmt ;
+
+exprStmt     -> expression ";" ;
+printStmt    -> "print" expression ";" ;
+
 expression   -> ternary ;
 ternary      -> equality ("?" equality ":" equality )* ;     // right-assoc
 equality     -> comparison ( ( "!=" | "==" ) comparison )* ; 
@@ -57,7 +81,9 @@ term         -> factor ( ( "-" | "+" ) factor )* ;
 factor       -> unary ( ( "/" | "*" ) unary )* ;
 unary        -> (( "!" "-" ) unary) | primary                // right-assoc
 primary      -> NUMBER | STRING | "true" | "false" | "nil" 
-             | "(" expression ")" ;
+             | IDENTIFIER | "(" expression ")" 
+             
+varDecl      -> "var" IDENTIFIER ( "=" expression )? ";" ;
 ```
 
 # Lexical Grammar

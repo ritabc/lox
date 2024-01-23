@@ -4,6 +4,9 @@ import java.util.List;
 
 public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
+    // as long as the interpreter is running, the variables will stay in memory
+    private Environment environment = new Environment();
+
     void interpret(List<Stmt> statements) {
         try {
             for (Stmt statement : statements) {
@@ -32,6 +35,11 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 return -(double)right;
         }
         return null;
+    }
+
+    @Override
+    public Object visitVariableExpr(Expr.Variable expr) {
+        return environment.get(expr.name);
     }
 
     @Override
@@ -105,6 +113,16 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return null;
     }
 
+    @Override
+    public Void visitVarStmt(Stmt.Var stmt) {
+        Object value = null;
+        if (stmt.initializer != null) {
+            value = evaluate(stmt.initializer);
+        }
+        environment.define(stmt.name.lexeme, value);
+        return null;
+    }
+
     // statement version of evaluate
     private void execute(Stmt stmt) {
         stmt.accept(this);
@@ -117,12 +135,12 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     private void checkNumberOperand(Token operator, Object operand) {
         if (operand instanceof Double) return;
-        throw new RuntimeError(operator, "Operator must be a number.");
+        throw new RuntimeError(operator, "Operand must be a number.");
     }
 
     private void checkNumberOperands(Token operator, Object left, Object right) {
         if (left instanceof Double && right instanceof Double) return;
-        throw new RuntimeError(operator, "Operands must be numbers");
+        throw new RuntimeError(operator, "Operands must be numbers.");
     }
 
     private boolean isTruthy(Object object) {
