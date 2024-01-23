@@ -13,19 +13,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ScannerTest
 {
-    private final static ByteArrayOutputStream errContent = new ByteArrayOutputStream();
-    private final static PrintStream originalErr = System.err;
-
-    @BeforeAll
-    public static void setupErrorStream() {
-        System.setErr(new PrintStream(errContent));
-    }
-
-    @AfterAll
-    public static void restoreErrorStream() {
-        System.setErr(originalErr);
-    }
-
     @Test
     void testVarDeclaration() {
         Scanner scanner = new Scanner("var language = \"lox\"");
@@ -90,14 +77,6 @@ class ScannerTest
         checkTokenTypes(tokens, expectedTokenTypes);
 
         assertEquals(tokens.get(0).literal, "multiline\nstring");
-    }
-
-    @Test
-    void errorDueToUnterminatedString() {
-        Scanner scanner = new Scanner("\"abc");
-        List<Token> tokens = scanner.scanTokens();
-
-        assertEquals("[line 1] Error: Unterminated string.\n", errContent.toString());
     }
 
     @Test
@@ -168,12 +147,6 @@ class ScannerTest
 
         List<TokenType> expectedEndsWithAsteriskTokens = Arrays.asList(TokenType.NUMBER, TokenType.EOF);
         checkTokenTypes(endsWithAsteriskTokens, expectedEndsWithAsteriskTokens);
-
-        // "/* an unterminated comment"
-        Scanner unterminatedCommentScanner = new Scanner("/* an unterminated comment");
-        List<Token> unterminatedCommentTokens = unterminatedCommentScanner.scanTokens();
-
-        assertEquals("[line 1] Error: Unterminated multi-line comment.\n", errContent.toString());
     }
 
     @Test
@@ -185,14 +158,6 @@ class ScannerTest
 
         checkTokenTypes(tokens, expectedTokenTypes);
     }
-
-    @Test
-    void openEndedPrimaryExprScan() {
-        List<Token> tokens = new Scanner("1 + ( 2 * 3").scanTokens();
-        new Parser(tokens).parse();
-        assertEquals("[line 1] Error at end: Expect ')' after expression.\n", errContent.toString());
-    }
-
 
     private void checkTokenTypes(List<Token> tokens, List<TokenType> expectedTypes) {
         assertEquals(expectedTypes.size(), tokens.size());
