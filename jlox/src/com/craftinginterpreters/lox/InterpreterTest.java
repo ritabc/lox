@@ -172,4 +172,39 @@ class InterpreterTest {
         assertEquals("3\n", stdOutCapture.toString());
         stdOutCapture.reset();
     }
+
+    @Test
+    void blockStatements() {
+        List<Stmt> stmts = new Parser(new Scanner("var global = \"outside\";\n" +
+                "{\n" +
+                "  var local = \"inside\";\n" +
+                "  print global + local;\n" +
+                "}").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
+        assertEquals("outsideinside\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
+        List<Stmt> stmts2 = new Parser(new Scanner("var a = \"global a\";\n" +
+                "var b = \"global b\";\n" +
+                "var c = \"global c\";\n" +
+                "{\n" +
+                "  var a = \"outer a\";\n" +
+                "  var b = \"outer b\";\n" +
+                "  {\n" +
+                "    var a = \"inner a\";\n" +
+                "    print a;\n" +
+                "    print b;\n" +
+                "    print c;\n" +
+                "  }\n" +
+                "  print a;\n" +
+                "  print b;\n" +
+                "  print c;\n" +
+                "}\n" +
+                "print a;\n" +
+                "print b;\n" +
+                "print c;").scanTokens()).parse();
+        new Interpreter().interpret(stmts2);
+        assertEquals("inner a\nouter b\nglobal c\nouter a\nouter b\nglobal c\nglobal a\nglobal b\nglobal c\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+    }
 }
