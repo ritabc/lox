@@ -23,7 +23,7 @@ public class ErrorsTest {
     }
 
     @AfterEach
-    public void debug() {
+    public void reset() {
         errContent.reset();
     }
 

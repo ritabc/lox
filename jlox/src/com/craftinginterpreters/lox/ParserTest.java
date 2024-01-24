@@ -51,14 +51,25 @@ class ParserTest {
 
     @Test
     void ternary() {
-        List<Token> tokens = new Scanner("true == false ? \"unseenString\" : 123;").scanTokens();
-        List<Stmt> statements = new Parser(tokens).parse();
+        List<Token> tokens1 = new Scanner("true == false ? \"unseenString\" : 123;").scanTokens();
+        List<Stmt> statements1 = new Parser(tokens1).parse();
+        assertEquals("(?: (== true false) \"unseenString\" 123.0);\n", new AstPrinter().print(statements1.get(0)));
 
-        assertEquals("(?: (== true false) \"unseenString\" 123.0);\n", new AstPrinter().print(statements.get(0)));
+        List<Token> tokens2 = new Scanner("false ? 123 : true ? 456 : 789;").scanTokens();
+        List<Stmt> statements2 = new Parser(tokens2).parse();
+        assertEquals("(?: (?: false 123.0 true) 456.0 789.0);\n", new AstPrinter().print(statements2.get(0)));
     }
 
     @Test
-    void printStatments() {
+    void assignmentExpr() {
+        List<Token> tokens1 = new Scanner("var a;\na = 1;").scanTokens();
+        List<Stmt> statements1 = new Parser(tokens1).parse();
+
+        assertEquals("(= a 1.0);\n", new AstPrinter().print(statements1.get(1)));
+    }
+
+    @Test
+    void printStatements() {
         List<Token> tokens1 = new Scanner("print \"one\";").scanTokens();
         List<Stmt> stmts1 = new Parser(tokens1).parse();
 
