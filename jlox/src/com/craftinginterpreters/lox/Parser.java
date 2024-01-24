@@ -114,14 +114,14 @@ public class Parser {
         return expr;
     }
 
-    // right assoc grammar rule: ternary -> equality ("?" equality ":" equality )* ;
+    // right assoc grammar rule: ternary -> equality ("?" ternary ":" ternary )* ; (All but 1st part can be another ternary)
     private Expr ternary() {
         Expr expr = equality();
 
-        while (match(TokenType.QUESTION)) {
-            Expr ifExpr = equality();
+        if (match(TokenType.QUESTION)) {
+            Expr ifExpr = ternary();
             consume(TokenType.COLON, "Expect ':' in ternary expression.");
-            Expr elseExpr = equality();
+            Expr elseExpr = ternary();
             expr = new Expr.Ternary(expr, ifExpr, elseExpr);
         }
 
