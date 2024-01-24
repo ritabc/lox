@@ -57,7 +57,11 @@ class ParserTest {
 
         List<Token> tokens2 = new Scanner("false ? 123 : true ? 456 : 789;").scanTokens();
         List<Stmt> statements2 = new Parser(tokens2).parse();
-        assertEquals("(?: (?: false 123.0 true) 456.0 789.0);\n", new AstPrinter().print(statements2.get(0)));
+        assertEquals("(?: false 123.0 (?: true 456.0 789.0));\n", new AstPrinter().print(statements2.get(0)));
+
+        List<Token> tokens3 = new Scanner("false ? false ? 123 : 456 : 789;").scanTokens();
+        List<Stmt> statements3 = new Parser(tokens3).parse();
+        assertEquals("(?: false (?: false 123.0 456.0) 789.0);\n", new AstPrinter().print(statements3.get(0)));
     }
 
     @Test

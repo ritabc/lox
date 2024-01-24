@@ -23,11 +23,6 @@ class InterpreterTest {
         System.setOut(oriStdOut);
     }
 
-    @AfterEach
-    public void reset() {
-        stdOutCapture.reset();
-    }
-
     @Test
     void visitLiteralExpr() {
         Expr.Literal exprDouble = new Expr.Literal(123.4);
@@ -130,10 +125,44 @@ class InterpreterTest {
     }
 
     @Test
-    void visitMultipleTernsOneStmt() {
-        List<Stmt> stmts = new Parser(new Scanner("print false ? 132 : true ? 456 : 789;").scanTokens()).parse();
-        new Interpreter().interpret(stmts);
-        assertEquals("456\n", stdOutCapture.toString());
+    void visitMultipleTernsInOneStmt() {
+
+        // another ternary replaces else (third part)
+        // x == 1 ? "one" x == 2 ? "two" : else;
+        Interpreter interpreter = new Interpreter();
+        List<Stmt> stmts1 = new Parser(new Scanner("var x = 1;\nprint x == 1 ? \"one\" : x == 2 ? \"two\" : \"else\";").scanTokens()).parse();
+        interpreter.interpret(stmts1);
+        assertEquals("one\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
+        List<Stmt> stmts2 = new Parser(new Scanner("var x = 2;\nprint x == 1 ? \"one\" : x == 2 ? \"two\" : \"else\";").scanTokens()).parse();
+        interpreter.interpret(stmts2);
+        assertEquals("two\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
+        List<Stmt> stmts3 = new Parser(new Scanner("var x = 0;\nprint x == 1 ? \"one\" : x == 2 ? \"two\" : \"else\";").scanTokens()).parse();
+        interpreter.interpret(stmts3);
+        assertEquals("else\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
+        // another ternary replaces if (2nd part)
+        // bool1 ? bool2 ? "oneAndTwo" : "oneNotTwo" : "notOne"
+        // aka
+        // bool1 ? (bool2 ? "oneAndTwo" : "oneNotTwo") : "notOne"
+        List<Stmt> stmts4 = new Parser(new Scanner("print true ? true ? \"oneAndTwo\" : \"oneNotTwo\" : \"notOne\";").scanTokens()).parse();
+        interpreter.interpret(stmts4);
+        assertEquals("oneAndTwo\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
+        List<Stmt> stmts5 = new Parser(new Scanner("print true ? false ? \"oneAndTwo\" : \"oneNotTwo\" : \"notOne\";").scanTokens()).parse();
+        interpreter.interpret(stmts5);
+        assertEquals("oneNotTwo\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
+        List<Stmt> stmts6 = new Parser(new Scanner("print false ? true ? \"oneAndTwo\" : \"oneNotTwo\" : \"notOne\";").scanTokens()).parse();
+        interpreter.interpret(stmts6);
+        assertEquals("notOne\n", stdOutCapture.toString());
+        stdOutCapture.reset();
     }
 
     @Test
@@ -141,5 +170,6 @@ class InterpreterTest {
         List<Stmt> stmts = new Parser(new Scanner("var a;\nvar two = 2;\n var three = 3;\nprint a = two = three;\n").scanTokens()).parse();
         new Interpreter().interpret(stmts);
         assertEquals("3\n", stdOutCapture.toString());
+        stdOutCapture.reset();
     }
 }
