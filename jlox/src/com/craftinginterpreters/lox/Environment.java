@@ -36,4 +36,14 @@ public class Environment {
 
         throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
     }
+
+    // Like define, except does not allow assignment if the variable does not already exist
+    void assign(Token name, Object value) {
+        if (values.containsKey(name.lexeme)) {
+            values.put(name.lexeme, value);
+            return;
+        }
+
+        throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
+    }
 }

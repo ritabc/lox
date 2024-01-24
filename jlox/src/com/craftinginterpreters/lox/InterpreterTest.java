@@ -1,10 +1,32 @@
 package com.craftinginterpreters.lox;
 
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class InterpreterTest {
+
+    private static final ByteArrayOutputStream stdOutCapture = new ByteArrayOutputStream();
+    private static final PrintStream oriStdOut = System.out;
+
+    @BeforeAll
+    public static void setupStdOutStream() {
+        System.setOut(new PrintStream(stdOutCapture));
+    }
+
+    @AfterAll
+    public static void restoreStdOutStream() {
+        System.setOut(oriStdOut);
+    }
+
+    @AfterEach
+    public void reset() {
+        stdOutCapture.reset();
+    }
 
     @Test
     void visitLiteralExpr() {
@@ -105,5 +127,19 @@ class InterpreterTest {
         Object valElse = new Interpreter().visitTernaryExpr(exprElse);
         assertInstanceOf(String.class, valElse);
         assertEquals("seenString", valElse);
+    }
+
+    @Test
+    void visitMultipleTernsOneStmt() {
+        List<Stmt> stmts = new Parser(new Scanner("print false ? 132 : true ? 456 : 789;").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
+        assertEquals("456\n", stdOutCapture.toString());
+    }
+
+    @Test
+    void visitMultipleAssignsOneStmt() {
+        List<Stmt> stmts = new Parser(new Scanner("var a;\nvar two = 2;\n var three = 3;\nprint a = two = three;\n").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
+        assertEquals("3\n", stdOutCapture.toString());
     }
 }

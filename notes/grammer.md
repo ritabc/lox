@@ -73,7 +73,8 @@ statement    -> exprStmt | printStmt ;
 exprStmt     -> expression ";" ;
 printStmt    -> "print" expression ";" ;
 
-expression   -> ternary ;
+expression   -> assignment ;
+assignment   -> IDENTIFIER "=" assignment | ternary ;        // right-assoc
 ternary      -> equality ("?" equality ":" equality )* ;     // right-assoc
 equality     -> comparison ( ( "!=" | "==" ) comparison )* ; 
 comparison   -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;

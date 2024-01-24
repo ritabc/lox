@@ -72,7 +72,46 @@ public class Parser {
 
     // grammar rule: expression -> equality ;
     private Expr expression() {
-        return ternary();
+        return assignment();
+    }
+
+
+    /*
+    Where l-values & r-values come in to play.
+    All our other expr's are r-values.
+    l-values are things that can be and are on the left of th '=' in assignment.
+    ```
+    var a = 0;
+    a = 1;
+    print a+1 // 2
+    ```
+    On the 3rd line, the interpreter knows a is an r-value.
+    It evaluates (looks up) the value of a.
+    On the 2nd line, it needs to know to NOT evaluate a.
+    Instead, it needs to know to set a.
+    B/c of this, Expr.Assign has a Token for the left hand side, and an Expr on the right.
+    TODO add parse test for makeList().head.next = node; (after adding obj fields capability)
+
+     */
+    private Expr assignment() {
+        Expr expr = ternary();
+
+        if (match(TokenType.EQUAL)) {
+            Token equals = previous();
+            // since it's right-associative, recursively call self
+            // allows us to do things like a = two = three. Where in the end, a will equal 3.
+            Expr value = assignment();
+
+            if (expr instanceof Expr.Variable) {
+                // convert the expr on the left of the '=' to an l-value by getting it's name and creating a new Token
+                Token name = ((Expr.Variable)expr).name;
+                return new Expr.Assign(name, value);
+            }
+
+            error(equals, "Invalid assignment target.");
+        }
+
+        return expr;
     }
 
     // right assoc grammar rule: ternary -> equality ("?" equality ":" equality )* ;
