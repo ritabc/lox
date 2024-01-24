@@ -68,7 +68,9 @@ program      -> declaration* EOF ;
 
 declaration  -> varDecl | statment;
 
-statement    -> exprStmt | printStmt ;
+statement    -> exprStmt | printStmt | block ;
+
+block        -> "{" declaration* "}" ;
 
 exprStmt     -> expression ";" ;
 printStmt    -> "print" expression ";" ;

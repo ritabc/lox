@@ -48,12 +48,23 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
         return expr.name.toString();
     }
 
+    @Override
+    public String visitBlockStmt(Stmt.Block stmt) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("(block ");
+        for (Stmt s : stmt.statements) {
+            sb.append(s.accept(this));
+        }
+        sb.append(")");
+        return sb.toString();
+    }
+
     /*
-    What types of expression stmts are there, how to handle each?
-    // `5 + 3 ;`               ==> `(+ 5 3);\n`
-    // `true ? 123 : "unseen"` ==> `(?: true 123 "unseen");\n`
-    // `-!!true`               ==> `(- (! (! true)));\n`
-    */
+        What types of expression stmts are there, how to handle each?
+        // `5 + 3 ;`               ==> `(+ 5 3);\n`
+        // `true ? 123 : "unseen"` ==> `(?: true 123 "unseen");\n`
+        // `-!!true`               ==> `(- (! (! true)));\n`
+        */
     @Override
     public String visitExpressionStmt(Stmt.Expression stmt) {
         return print(stmt.expression) + ";\n";
@@ -74,7 +85,7 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
     // `var x = 5;`  ==> `(var x 5)`
     @Override
     public String visitVarStmt(Stmt.Var stmt) {
-        return parenthesize(stmt.name.lexeme, stmt.initializer);
+        return "(var " + stmt.name.lexeme + " " + stmt.initializer.accept(this) + ");\n";
     }
 
     private String parenthesize(String name, Expr... exprs) {
