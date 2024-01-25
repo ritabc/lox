@@ -130,8 +130,8 @@ class InterpreterTest {
         // another ternary replaces else (third part)
         // x == 1 ? "one" x == 2 ? "two" : else;
         Interpreter interpreter = new Interpreter();
-        List<Stmt> stmts1 = new Parser(new Scanner("var x = 1;\nprint x == 1 ? \"one\" : x == 2 ? \"two\" : \"else\";").scanTokens()).parse();
-        interpreter.interpret(stmts1);
+        List<Stmt> stmts = new Parser(new Scanner("var x = 1;\nprint x == 1 ? \"one\" : x == 2 ? \"two\" : \"else\";").scanTokens()).parse();
+        interpreter.interpret(stmts);
         assertEquals("one\n", stdOutCapture.toString());
         stdOutCapture.reset();
 
@@ -206,5 +206,73 @@ class InterpreterTest {
         new Interpreter().interpret(stmts2);
         assertEquals("inner a\nouter b\nglobal c\nouter a\nouter b\nglobal c\nglobal a\nglobal b\nglobal c\n", stdOutCapture.toString());
         stdOutCapture.reset();
+    }
+
+    @Test
+    void testIfStatement() {
+        List<Stmt> stmts = new Parser(new Scanner("var x;\nif (true)\nx = 5;\nelse x = 2; print x;").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
+        assertEquals("5\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
+        List<Stmt> stmts2 = new Parser(new Scanner("var x;\nif (false)\nx = 5;\nelse x = 2; print x;").scanTokens()).parse();
+        new Interpreter().interpret(stmts2);
+        assertEquals("2\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
+        List<Stmt> stmts3 = new Parser(new Scanner("var x;\nif (true)\nx = 5;\nprint x;").scanTokens()).parse();
+        new Interpreter().interpret(stmts3);
+        assertEquals("5\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+    }
+
+    @Test
+    void testLogicalExprs() {
+        List<Stmt> stmts = new Parser(new Scanner("print true and true and false;").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
+        assertEquals("false\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
+        List<Stmt> stmts2 = new Parser(new Scanner("print true or true or false;").scanTokens()).parse();
+        new Interpreter().interpret(stmts2);
+        assertEquals("true\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+    }
+
+    @Test
+    void whileStmt() {
+        List<Stmt> stmts = new Parser(new Scanner("var five = 1;\nwhile(five < 5)five = five + 1;print five;").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
+        assertEquals("5\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+    }
+
+    @Test
+    void forStmt() { // fib #'s under 10000
+        List<Stmt> stmts = new Parser(new Scanner("var a = 0; var temp; for (var b = 1; a < 10000; b = temp + b) { print a; temp = a; a = b; }").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
+        assertEquals("0\n" +
+                "1\n" +
+                "1\n" +
+                "2\n" +
+                "3\n" +
+                "5\n" +
+                "8\n" +
+                "13\n" +
+                "21\n" +
+                "34\n" +
+                "55\n" +
+                "89\n" +
+                "144\n" +
+                "233\n" +
+                "377\n" +
+                "610\n" +
+                "987\n" +
+                "1597\n" +
+                "2584\n" +
+                "4181\n" +
+                "6765\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
     }
 }

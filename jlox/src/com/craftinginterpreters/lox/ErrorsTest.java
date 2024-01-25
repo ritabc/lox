@@ -78,4 +78,16 @@ public class ErrorsTest {
         assertEquals("[line 1] Operands must be numbers.\n", errContent.toString());
     }
 
+    @Test
+    void parseIfStmtMissingParens() {
+        List<Token> tokens1 = new Scanner("if true) print \"5\";").scanTokens();
+        new Parser(tokens1).parse();
+        assertEquals("[line 1] Error at 'true': Expect '(' after 'if'.\n", errContent.toString());
+        errContent.reset();
+
+        List<Token> tokens2 = new Scanner("if (true print \"5\";").scanTokens();
+        new Parser(tokens2).parse();
+        assertEquals("[line 1] Error at 'print': Expect ')' after if condition.\n", errContent.toString());
+    }
+
 }
