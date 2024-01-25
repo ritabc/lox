@@ -37,6 +37,14 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
         return expr.value.toString();
     }
 
+    /*
+    val1 and val2 ==> (and val1 val2)
+     */
+    @Override
+    public String visitLogicalExpr(Expr.Logical expr) {
+        return parenthesize(expr.operator.lexeme, expr.left, expr.right);
+    }
+
     @Override
     public String visitUnaryExpr(Expr.Unary expr) {
         return parenthesize(expr.operator.lexeme, expr.right);
@@ -70,6 +78,17 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
         return print(stmt.expression) + ";\n";
     }
 
+
+    /*
+    if (check) thenStatement else elseStmt
+    ==>
+    (if checkExpr thenStmt elseStmt)
+     */
+    @Override
+    public String visitIfStmt(Stmt.If stmt) {
+        return "(if " + print(stmt.condition) + " " + print(stmt.thenBranch).strip() + (stmt.elseBranch == null ? "" : " " + print(stmt.elseBranch).strip()) + ");\n";
+    }
+
     /*
     What types of print stmts are there, how to handle each?
     // `print "one";`    ==> (print "one");\n"
@@ -86,6 +105,11 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
     @Override
     public String visitVarStmt(Stmt.Var stmt) {
         return "(var " + stmt.name.lexeme + " " + stmt.initializer.accept(this) + ");\n";
+    }
+
+    @Override
+    public String visitWhileStmt(Stmt.While stmt) {
+        return "(while " + print(stmt.condition) + " " + print(stmt.body) + ");\n";
     }
 
     private String parenthesize(String name, Expr... exprs) {

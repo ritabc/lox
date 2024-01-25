@@ -3,6 +3,7 @@ package com.craftinginterpreters.lox;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -84,4 +85,36 @@ class ParserTest {
 
         assertEquals("(print (+ 2.0 1.0));\n", new AstPrinter().print(stmts2.get(0)));
     }
+
+    @Test
+    void ifStmts() {
+        List<Token> tokens1 = new Scanner("if (true) print \"true\"; else print \"false\";").scanTokens();
+        List<Stmt> stmts1 = new Parser(tokens1).parse();
+
+        assertEquals("(if true (print \"true\"); (print \"false\"););\n", new AstPrinter().print(stmts1.get(0)));
+
+        List<Token> tokens2 = new Scanner("if (true) print \"true\";").scanTokens();
+        List<Stmt> stmts2 = new Parser(tokens2).parse();
+
+        assertEquals("(if true (print \"true\"););\n", new AstPrinter().print(stmts2.get(0)));
+    }
+
+    @Test
+    void logicalExprs() {
+        List<Stmt> stmts1 = new Parser(new Scanner("true and true and false;").scanTokens()).parse();
+
+        assertEquals("(and (and true true) false);\n", new AstPrinter().print(stmts1.get(0)));
+
+        List<Stmt> stmts2 = new Parser(new Scanner("true or true or false;").scanTokens()).parse();
+
+        assertEquals("(or (or true true) false);\n", new AstPrinter().print(stmts2.get(0)));
+    }
+
+    @Test
+    void whileStmt() {
+        List<Stmt> stmts1 = new Parser(new Scanner("while (true) print \"yes\";").scanTokens()).parse();
+
+        assertEquals("(while true (print \"yes\");\n);\n", new AstPrinter().print(stmts1.get(0)));
+    }
+
 }

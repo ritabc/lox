@@ -11,7 +11,8 @@
 1. Add support for statements, including expression statements and "print expr ;" statements
 1. Add support for global vars
 1. Add support for assignment
-1. Add lexical scoping, (chain of) enclosing environments  
+1. Add lexical scoping, (chain of) enclosing environments
+1. Add control flow (branching with if & logical and/or, and while & for loops)
 
 ### Additional features
 #### Shown with link to another branch if that was deemed necessary

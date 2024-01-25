@@ -2,15 +2,18 @@
 
 package com.craftinginterpreters.lox;
 
+import java.util.List;
+
 abstract class Expr {
 
   interface Visitor<R> {
     R visitAssignExpr(Assign expr);
-    R visitTernaryExpr(Ternary expr);
     R visitBinaryExpr(Binary expr);
     R visitGroupingExpr(Grouping expr);
     R visitLiteralExpr(Literal expr);
+    R visitLogicalExpr(Logical expr);
     R visitUnaryExpr(Unary expr);
+    R visitTernaryExpr(Ternary expr);
     R visitVariableExpr(Variable expr);
   }
 
@@ -29,23 +32,6 @@ abstract class Expr {
 
     final Token name;
     final Expr value;
-  }
-
-  static class Ternary extends Expr {
-    Ternary(Expr check, Expr ifExpr, Expr elseExpr){
-     this.check = check;
-     this.ifExpr = ifExpr;
-     this.elseExpr = elseExpr;
-    }
-
-    @Override
-    <R> R accept(Visitor<R> visitor) {
-      return visitor.visitTernaryExpr(this);
-    }
-
-    final Expr check;
-    final Expr ifExpr;
-    final Expr elseExpr;
   }
 
   static class Binary extends Expr {
@@ -91,6 +77,23 @@ abstract class Expr {
     final Object value;
   }
 
+  static class Logical extends Expr {
+    Logical(Expr left, Token operator, Expr right){
+     this.left = left;
+     this.operator = operator;
+     this.right = right;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitLogicalExpr(this);
+    }
+
+    final Expr left;
+    final Token operator;
+    final Expr right;
+  }
+
   static class Unary extends Expr {
     Unary(Token operator, Expr right){
      this.operator = operator;
@@ -104,6 +107,23 @@ abstract class Expr {
 
     final Token operator;
     final Expr right;
+  }
+
+  static class Ternary extends Expr {
+    Ternary(Expr check, Expr ifExpr, Expr elseExpr){
+     this.check = check;
+     this.ifExpr = ifExpr;
+     this.elseExpr = elseExpr;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitTernaryExpr(this);
+    }
+
+    final Expr check;
+    final Expr ifExpr;
+    final Expr elseExpr;
   }
 
   static class Variable extends Expr {

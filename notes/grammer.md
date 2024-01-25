@@ -68,7 +68,13 @@ program      -> declaration* EOF ;
 
 declaration  -> varDecl | statment;
 
-statement    -> exprStmt | printStmt | block ;
+statement    -> exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
+
+forStmt      -> "for" "(" (varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
+
+ifStmt       -> "if" "(" expression ")" statement ( "else" statement )? ;
+
+whileStmt    -> "while" "(" expression ")" statement ;
 
 block        -> "{" declaration* "}" ;
 
@@ -77,7 +83,9 @@ printStmt    -> "print" expression ";" ;
 
 expression   -> assignment ;
 assignment   -> IDENTIFIER "=" assignment | ternary ;        // right-assoc
-ternary      -> equality ("?" equality ":" equality )* ;     // right-assoc
+ternary      -> logic_or ("?" ternary ":" ternary )* ;     // right-assoc
+logic_or     -> logic_and ( "or" logic_and )* ;
+logic_and    -> equality ( "and" equality )* ;
 equality     -> comparison ( ( "!=" | "==" ) comparison )* ; 
 comparison   -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term         -> factor ( ( "-" | "+" ) factor )* ;

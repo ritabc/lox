@@ -1,6 +1,7 @@
 package com.craftinginterpreters.lox;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class Parser {
@@ -52,10 +53,79 @@ public class Parser {
     }
 
     private Stmt statement() {
+        if (match(TokenType.FOR)) return forStatement();
+        if (match(TokenType.IF)) return ifStatement();
         if (match(TokenType.PRINT)) return printStatement();
+        if (match(TokenType.WHILE)) return whileStatement();
         if (match(TokenType.LEFT_BRACE)) return new Stmt.Block(block());
 
         return expressionStatement();
+    }
+
+    // Use desugaring (to learn the concept, not necessarily b/c it makes the most sense here)
+    // There will be no AST node for a forStatement, instead we'll desugar for loops to while loops and other statements we already handle
+    private Stmt forStatement() {
+        consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.");
+
+        // initializer is optional, or it'll be a varDecl or exprSt
+        Stmt initializer;
+        if (match(TokenType.SEMICOLON)) {
+            initializer = null;
+        } else if (match(TokenType.VAR)) {
+            initializer = varDeclaration();
+        } else {
+            initializer = expressionStatement();
+        }
+
+        // condition is also optional, or an expr, but either way we must have a ';'
+        Expr condition = null;
+        if (!check(TokenType.SEMICOLON)) {
+            condition = expression();
+        }
+        consume(TokenType.SEMICOLON, "Expect ';' after loop condition.");
+
+        Expr increment = null;
+        if (!check(TokenType.RIGHT_PAREN)) {
+            increment = expression();
+        }
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses.");
+
+        Stmt body = statement();
+
+        // if there's an increment, replace the body with a list of stmts containing the original body + the increment
+        // do this first so when we encapsulate in while loop, each iteration has the increment
+        if (increment != null) {
+            body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
+        }
+
+        // take condition and make a while loop with that, and the body
+        // without an explicit condition, make it an infinite loop
+        if (condition == null) condition = new Expr.Literal(true);
+        body = new Stmt.While(condition, body);
+
+        // replace entire while loop statement with (initializer (if there is one), whileLoop)
+        // do this last, so its only executed once (outside of while loop)
+        if (initializer != null) {
+            body = new Stmt.Block(Arrays.asList(initializer, body));
+        }
+
+        return body;
+    }
+
+    // NB: To handle the dangling else problem of which if stmt does the else belong to in: if (first) if (second) whenTrue; else whenFalse();
+    // we just bind the dangling else to the closest if, which the following parser does
+    private Stmt ifStatement() {
+        consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.");
+        Expr condition = expression();
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after if condition.");
+
+        Stmt thenBranch = statement();
+        Stmt elseBranch = null;
+        if (match(TokenType.ELSE)) {
+            elseBranch = statement();
+        }
+
+        return new Stmt.If(condition, thenBranch, elseBranch);
     }
 
     // emit the syntax tree for a print statement
@@ -63,6 +133,15 @@ public class Parser {
         Expr value = expression();
         consume(TokenType.SEMICOLON, "Expect ';' after value.");
         return new Stmt.Print(value);
+    }
+
+    private Stmt whileStatement() {
+        consume(TokenType.LEFT_PAREN, "Expect '(' after 'while'.");
+        Expr condition = expression();
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after condition.");
+        Stmt body = statement();
+
+        return new Stmt.While(condition, body);
     }
 
     // Returns a list of statements enclosed in a scope block or function body
@@ -116,7 +195,7 @@ public class Parser {
             Expr value = assignment();
 
             if (expr instanceof Expr.Variable) {
-                // convert the expr on the left of the '=' to an l-value by getting it's name and creating a new Token
+                // convert the expr on the left of the '=' to an l-value by getting its name and creating a new Token
                 Token name = ((Expr.Variable)expr).name;
                 return new Expr.Assign(name, value);
             }
@@ -129,13 +208,37 @@ public class Parser {
 
     // right assoc grammar rule: ternary -> equality ("?" ternary ":" ternary )* ; (All but 1st part can be another ternary)
     private Expr ternary() {
-        Expr expr = equality();
+        Expr expr = or();
 
         if (match(TokenType.QUESTION)) {
             Expr ifExpr = ternary();
             consume(TokenType.COLON, "Expect ':' in ternary expression.");
             Expr elseExpr = ternary();
             expr = new Expr.Ternary(expr, ifExpr, elseExpr);
+        }
+
+        return expr;
+    }
+
+    private Expr or() {
+        Expr expr = and();
+
+        while (match(TokenType.OR)) {
+            Token operator = previous();
+            Expr right = and();
+            expr = new Expr.Logical(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    private Expr and() {
+        Expr expr = equality();
+
+        while (match(TokenType.AND)) {
+            Token operator = previous();
+            Expr right = equality();
+            expr = new Expr.Logical(expr, operator, right);
         }
 
         return expr;
