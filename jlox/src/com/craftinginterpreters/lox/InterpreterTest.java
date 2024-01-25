@@ -275,4 +275,37 @@ class InterpreterTest {
         stdOutCapture.reset();
 
     }
+
+    @Test
+    void breakStmt() {
+        new Interpreter().interpret(new Parser(new Scanner(
+                "var three = 1;" +
+                "while (three < 5) {" +
+                "if (three == 3) break;" +
+                "three = three + 1;" +
+                "}" +
+                "print three;").scanTokens()).parse());
+        assertEquals("3\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+
+        // nested
+        List<Stmt> stmts = new Parser(new Scanner(
+                "var x = 1;" +
+                "while (true) {" +
+                    "if (x == 7) {print x; break;}" +
+                    "while (true) {" +
+                        "if (x == 6) {print x; break;}" +
+                        "while (true) {" +
+                            "if (x == 5) {print x; break;}" +
+                            "x = x + 1;" +
+                        "}" +
+                        "x = x + 1;" +
+                    "}" +
+                    "x = x + 1;" +
+                "}" +
+                "print x;").scanTokens()).parse();
+        new Interpreter().interpret(stmts);
+        assertEquals("5\n6\n7\n7\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+    }
 }

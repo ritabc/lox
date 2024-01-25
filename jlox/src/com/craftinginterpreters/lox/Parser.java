@@ -16,6 +16,9 @@ public class Parser {
     // The next token eagerly waiting to be parsed
     private int current = 0;
 
+    // Specification states: "It should be a syntax error to have a break statement appear outside of any enclosing loop." So, we need to determine whether we're in a loop. Use loopDepth.
+    private int loopDepth = 0;
+
     Parser(List<Token> tokens) {
         this.tokens = tokens;
     }
@@ -58,6 +61,7 @@ public class Parser {
         if (match(TokenType.PRINT)) return printStatement();
         if (match(TokenType.WHILE)) return whileStatement();
         if (match(TokenType.LEFT_BRACE)) return new Stmt.Block(block());
+        if (match(TokenType.BREAK)) return new Stmt.Break();
 
         return expressionStatement();
     }
@@ -65,51 +69,56 @@ public class Parser {
     // Use desugaring (to learn the concept, not necessarily b/c it makes the most sense here)
     // There will be no AST node for a forStatement, instead we'll desugar for loops to while loops and other statements we already handle
     private Stmt forStatement() {
-        consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.");
+        loopDepth++;
+        try {
+            consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.");
 
-        // initializer is optional, or it'll be a varDecl or exprSt
-        Stmt initializer;
-        if (match(TokenType.SEMICOLON)) {
-            initializer = null;
-        } else if (match(TokenType.VAR)) {
-            initializer = varDeclaration();
-        } else {
-            initializer = expressionStatement();
+            // initializer is optional, or it'll be a varDecl or exprSt
+            Stmt initializer;
+            if (match(TokenType.SEMICOLON)) {
+                initializer = null;
+            } else if (match(TokenType.VAR)) {
+                initializer = varDeclaration();
+            } else {
+                initializer = expressionStatement();
+            }
+
+            // condition is also optional, or an expr, but either way we must have a ';'
+            Expr condition = null;
+            if (!check(TokenType.SEMICOLON)) {
+                condition = expression();
+            }
+            consume(TokenType.SEMICOLON, "Expect ';' after loop condition.");
+
+            Expr increment = null;
+            if (!check(TokenType.RIGHT_PAREN)) {
+                increment = expression();
+            }
+            consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses.");
+
+            Stmt body = breakableStatement();
+
+            // if there's an increment, replace the body with a list of stmts containing the original body + the increment
+            // do this first so when we encapsulate in while loop, each iteration has the increment
+            if (increment != null) {
+                body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
+            }
+
+            // take condition and make a while loop with that, and the body
+            // without an explicit condition, make it an infinite loop
+            if (condition == null) condition = new Expr.Literal(true);
+            body = new Stmt.While(condition, body);
+
+            // replace entire while loop statement with (initializer (if there is one), whileLoop)
+            // do this last, so its only executed once (outside of while loop)
+            if (initializer != null) {
+                body = new Stmt.Block(Arrays.asList(initializer, body));
+            }
+
+            return body;
+        } finally {
+            loopDepth--;
         }
-
-        // condition is also optional, or an expr, but either way we must have a ';'
-        Expr condition = null;
-        if (!check(TokenType.SEMICOLON)) {
-            condition = expression();
-        }
-        consume(TokenType.SEMICOLON, "Expect ';' after loop condition.");
-
-        Expr increment = null;
-        if (!check(TokenType.RIGHT_PAREN)) {
-            increment = expression();
-        }
-        consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses.");
-
-        Stmt body = statement();
-
-        // if there's an increment, replace the body with a list of stmts containing the original body + the increment
-        // do this first so when we encapsulate in while loop, each iteration has the increment
-        if (increment != null) {
-            body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
-        }
-
-        // take condition and make a while loop with that, and the body
-        // without an explicit condition, make it an infinite loop
-        if (condition == null) condition = new Expr.Literal(true);
-        body = new Stmt.While(condition, body);
-
-        // replace entire while loop statement with (initializer (if there is one), whileLoop)
-        // do this last, so its only executed once (outside of while loop)
-        if (initializer != null) {
-            body = new Stmt.Block(Arrays.asList(initializer, body));
-        }
-
-        return body;
     }
 
     // NB: To handle the dangling else problem of which if stmt does the else belong to in: if (first) if (second) whenTrue; else whenFalse();
@@ -119,10 +128,10 @@ public class Parser {
         Expr condition = expression();
         consume(TokenType.RIGHT_PAREN, "Expect ')' after if condition.");
 
-        Stmt thenBranch = statement();
+        Stmt thenBranch = breakableStatement();
         Stmt elseBranch = null;
         if (match(TokenType.ELSE)) {
-            elseBranch = statement();
+            elseBranch = breakableStatement();
         }
 
         return new Stmt.If(condition, thenBranch, elseBranch);
@@ -136,12 +145,33 @@ public class Parser {
     }
 
     private Stmt whileStatement() {
-        consume(TokenType.LEFT_PAREN, "Expect '(' after 'while'.");
-        Expr condition = expression();
-        consume(TokenType.RIGHT_PAREN, "Expect ')' after condition.");
-        Stmt body = statement();
+        loopDepth++;
+        try {
+            consume(TokenType.LEFT_PAREN, "Expect '(' after 'while'.");
+            Expr condition = expression();
+            consume(TokenType.RIGHT_PAREN, "Expect ')' after condition.");
+            Stmt body = breakableStatement();
 
-        return new Stmt.While(condition, body);
+            return new Stmt.While(condition, body);
+        } finally {
+            loopDepth--;
+        }
+    }
+
+    private Stmt breakableStatement() {
+        if (match(TokenType.BREAK)) {
+            return breakStatement();
+        } else {
+            return statement();
+        }
+    }
+
+    private Stmt breakStatement() {
+        if (loopDepth <= 0) {
+            error(previous(), "Must be inside a loop to use 'break'.");
+        }
+        consume(TokenType.SEMICOLON, "Expect ';' after 'break'.");
+        return new Stmt.Break();
     }
 
     // Returns a list of statements enclosed in a scope block or function body

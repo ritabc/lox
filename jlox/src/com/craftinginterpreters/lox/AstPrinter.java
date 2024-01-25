@@ -67,6 +67,11 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
         return sb.toString();
     }
 
+    @Override
+    public String visitBreakStmt(Stmt.Break stmt) {
+        return "(break)";
+    }
+
     /*
         What types of expression stmts are there, how to handle each?
         // `5 + 3 ;`               ==> `(+ 5 3);\n`

@@ -4,6 +4,8 @@ import java.util.List;
 
 public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
+    private static class BreakException extends RuntimeException {}
+
     // as long as the interpreter is running, the variables will stay in memory
     private Environment environment = new Environment();
 
@@ -150,6 +152,12 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return null;
     }
 
+    // Specification states: "At runtime, a break statement causes execution to jump to the end of the nearest enclosing loop and proceeds from there." Which means break logic should happen in Interpreter, instead of skipping the parsing of statements.
+    @Override
+    public Void visitBreakStmt(Stmt.Break stmt) {
+        throw new BreakException();
+    }
+
     @Override
     public Void visitVarStmt(Stmt.Var stmt) {
         Object value = null;
@@ -160,10 +168,15 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return null;
     }
 
+    // What should break statement cause interpreter to do? In any sort of loop, it should do nothing, causing us to break from our while (in Java) below
     @Override
     public Void visitWhileStmt(Stmt.While stmt) {
-        while (isTruthy(evaluate(stmt.condition))) {
-            execute(stmt.body);
+        try {
+            while (isTruthy(evaluate(stmt.condition))) {
+                execute(stmt.body);
+            }
+        } catch (BreakException ex) {
+            // do nothing;
         }
         return null;
     }

@@ -68,13 +68,17 @@ program      -> declaration* EOF ;
 
 declaration  -> varDecl | statment;
 
-statement    -> exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
+statement    -> exprStmt | forStmt | ifStmt | printStmt | whileStmt | block | breakStmt ;
 
-forStmt      -> "for" "(" (varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
+forStmt      -> "for" "(" (varDecl | exprStmt | ";" ) expression? ";" expression? ")" breakableStatement ;
 
-ifStmt       -> "if" "(" expression ")" statement ( "else" statement )? ;
+whileStmt    -> "while" "(" expression ")" breakableStatement;
 
-whileStmt    -> "while" "(" expression ")" statement ;
+breakableStatement -> breakStmt | statement ;
+
+breakStmt    -> "break" ";" ;
+
+ifStmt       -> "if" "(" expression ")" breakableStmt ( "else" breakableStmt )? ;
 
 block        -> "{" declaration* "}" ;
 
