@@ -16,9 +16,8 @@
 1. Add support for function decls and calls, including return values.
 -- Add a builtin func, clock(), which is a wrapper around Java's System.currentTimeMillis()
 -- throw runtime Lox exception from interpreter when user attempts to call something that isn't callable, like a String. (Instead of allowing a java exception to be seen)
--- For now, we'll always set the function's body's parent env as the top-level global environment. So if an identifier isn't defined in the function itself, the interpreter will look outside the func and in the global scope. However, this means functions nested inside blocks or other functions, aka local functions, and closures are not yet supported.  
-
-1.
+-- For now, we'll always set the function's body's parent env as the top-level global environment. So if an identifier isn't defined in the function itself, the interpreter will look outside the func and in the global scope. However, this means functions nested inside blocks or other functions, aka local functions, and closures are not yet supported.
+1. Add support for closures.
 
 
 ### Additional features

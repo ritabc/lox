@@ -6,13 +6,21 @@ public class LoxFunction implements LoxCallable {
 
     private final Stmt.Function declaration;
 
-    LoxFunction(Stmt.Function declaration) {
+    // closure represents the lexical scope surrounding the function declaration
+    private final Environment closure;
+
+    LoxFunction(Stmt.Function declaration, Environment closure) {
         this.declaration = declaration;
+        this.closure = closure;
     }
 
     @Override
     public Object call(Interpreter interpreter, List<Object> arguments) {
-        Environment environment = new Environment(interpreter.globals);
+
+        // When we call the function, we use the scope surrounding the func declaration as the call's parent, instead of going all the way out to globals
+        // Creates an env chain that goes from the func's declared body, out through all the envs where the func is declared, all the way to global scope.
+        Environment environment = new Environment(closure);
+
         for (int i = 0; i < declaration.params.size(); i++) {
             environment.define(declaration.params.get(i).lexeme, arguments.get(i));
         }
