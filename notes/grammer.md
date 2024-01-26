@@ -60,26 +60,44 @@ program     -> declaration* EOF ;
 declaration -> varDecl | statement ; 
 statement   -> exprStmt | printStmt ;
 ```
+# Other notes
+- Usually, a named function declaration is actually 2 distinct steps (1) creating a new func obj, and (2) binding a new variable to it. This requires anonymous funcs, like:
+```
+var add = fun (a, b) {
+print a + b;
+};
+```
+but we will just always use named functions
 
 # Syntactical Grammar
 ```
 
 program      -> declaration* EOF ;
 
-declaration  -> varDecl | statment;
+declaration  -> funDecl | varDecl | statment ;
 
-statement    -> exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
+funDecl      -> "fun" function ;
+
+function     -> IDENTIFIER "(" parameters? ")" block ;
+
+parameters   -> IDENTIFIER ( "," IDENTIFIER )* ;
+
+statement    -> exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block ;
+
+exprStmt     -> expression ";" ;
 
 forStmt      -> "for" "(" (varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
 
 ifStmt       -> "if" "(" expression ")" statement ( "else" statement )? ;
 
+printStmt    -> "print" expression ";" ;
+
+returnStmt   -> "return" expression? ";" ;
+
 whileStmt    -> "while" "(" expression ")" statement ;
 
 block        -> "{" declaration* "}" ;
 
-exprStmt     -> expression ";" ;
-printStmt    -> "print" expression ";" ;
 
 expression   -> assignment ;
 assignment   -> IDENTIFIER "=" assignment | ternary ;        // right-assoc
@@ -90,7 +108,9 @@ equality     -> comparison ( ( "!=" | "==" ) comparison )* ;
 comparison   -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term         -> factor ( ( "-" | "+" ) factor )* ;
 factor       -> unary ( ( "/" | "*" ) unary )* ;
-unary        -> (( "!" "-" ) unary) | primary                // right-assoc
+unary        -> (( "!" "-" ) unary) | call                // right-assoc
+call         -> primary ( "(" arguments ")" )* ;          // allows us to do currying like fn(1)(2)(3), where each func only takes 1 arg but returns a func that takes another arg
+arguments    -> expression ( "," expression )* ;
 primary      -> NUMBER | STRING | "true" | "false" | "nil" 
              | IDENTIFIER | "(" expression ")" 
              
