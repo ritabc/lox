@@ -275,4 +275,11 @@ class InterpreterTest {
         stdOutCapture.reset();
 
     }
+
+    @Test
+    void funcDeclStmtAndCallExpr() {
+        new Interpreter().interpret(new Parser(new Scanner("fun fib(n) { if (n <= 1) return n; return fib(n-2) + fib(n-1); }\nfor (var i = 0; i < 20; i = i+1) { print fib(i); }\n").scanTokens()).parse());
+        assertEquals("0\n1\n1\n2\n3\n5\n8\n13\n21\n34\n55\n89\n144\n233\n377\n610\n987\n1597\n2584\n4181\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+    }
 }

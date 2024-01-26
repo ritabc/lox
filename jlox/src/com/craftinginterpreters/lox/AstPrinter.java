@@ -26,6 +26,18 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
     }
 
     @Override
+    public String visitCallExpr(Expr.Call expr) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("(call");
+        sb.append(expr.callee.accept(this));
+        for (Expr arg : expr.arguments) {
+            sb.append(" ").append(arg.accept(this));
+        }
+        sb.append(")");
+        return sb.toString();
+    }
+
+    @Override
     public String visitGroupingExpr(Expr.Grouping expr) {
         return parenthesize("group", expr.expression);
     }
@@ -79,6 +91,26 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
     }
 
 
+    /* func sayHi(first, last) {
+    print "Hi, " + first + " " + last + "!";
+    }   ====> (func (params first last) (body (print "...")))
+     */
+    @Override
+    public String visitFunctionStmt(Stmt.Function stmt) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("(func (params ");
+        for (Token param : stmt.params) {
+            sb.append(" ").append(param.lexeme);
+        }
+        sb.append(") (body ");
+        for (Stmt bodyStmt : stmt.body) {
+            sb.append(" ").append(print(bodyStmt));
+        }
+        sb.append("))");
+        return sb.toString();
+    }
+
+
     /*
     if (check) thenStatement else elseStmt
     ==>
@@ -99,6 +131,11 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
     @Override
     public String visitPrintStmt(Stmt.Print stmt) {
         return "(print " + print(stmt.expression) + ");\n";
+    }
+
+    @Override
+    public String visitReturnStmt(Stmt.Return stmt) {
+        return parenthesize(stmt.keyword.lexeme, stmt.value);
     }
 
     // `var x = 5;`  ==> `(var x 5)`
