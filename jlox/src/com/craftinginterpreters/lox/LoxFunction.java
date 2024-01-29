@@ -4,12 +4,12 @@ import java.util.List;
 
 public class LoxFunction implements LoxCallable {
 
-    private final Stmt.Function declaration;
+    private final Stmt.FunDecl declaration;
 
     // closure represents the lexical scope surrounding the function declaration
     private final Environment closure;
 
-    LoxFunction(Stmt.Function declaration, Environment closure) {
+    LoxFunction(Stmt.FunDecl declaration, Environment closure) {
         this.declaration = declaration;
         this.closure = closure;
     }

@@ -130,6 +130,21 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     @Override
+    public Void visitFunDeclStmt(Stmt.FunDecl stmt) {
+        // pass in the current environment for sake of closures.
+        LoxFunction function = new LoxFunction(stmt, environment);
+        environment.define(stmt.name.lexeme, function);
+        return null;
+    }
+
+    // An anon fun has a body and params. Since it's an expression we need to interpret and evaluate it. We don't need to store it in the environment as its own thing. We do need to treat it as an argument.
+    @Override
+    public Object visitAnonFunExpr(Expr.AnonFun expr) {
+        return new LoxFunction(new Stmt.FunDecl(null, expr.params, expr.body), environment);
+
+    }
+    
+    @Override
     public Object visitCallExpr(Expr.Call expr) {
         Object callee = evaluate(expr.callee);
 
@@ -170,14 +185,6 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Void visitExpressionStmt(Stmt.Expression stmt) {
         evaluate(stmt.expression);
-        return null;
-    }
-
-    @Override
-    public Void visitFunctionStmt(Stmt.Function stmt) {
-        // pass in the current environment for sake of closures.
-        LoxFunction function = new LoxFunction(stmt, environment);
-        environment.define(stmt.name.lexeme, function);
         return null;
     }
 

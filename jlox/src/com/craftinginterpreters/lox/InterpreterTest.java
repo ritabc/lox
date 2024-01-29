@@ -290,4 +290,38 @@ class InterpreterTest {
         assertEquals("1\n2\n", stdOutCapture.toString());
         stdOutCapture.reset();
     }
+
+    @Test
+    void curryingWithAnonymousFuns() {
+        new Interpreter().interpret(new Parser(new Scanner(
+                "var sb = \"\";\n" +
+                "fun curry(firstarg) {\n" +
+                    "sb = sb + firstarg;\n" +
+                    "return fun (secondarg) {\n" +
+                        "sb = sb + secondarg;\n" +
+                        "return fun (thirdarg) {\n" +
+                            "sb = sb + thirdarg;\n" +
+                            "return;" +
+                        "};" +
+                    "};" +
+                "}" +
+                "curry(\"one\")(\"two\")(\"three\");" +
+                "print sb;").scanTokens()).parse());
+        assertEquals("onetwothree\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+    }
+
+    @Test
+    void anonFunAsOneOfMultipleArguments() {
+        new Interpreter().interpret(new Parser(new Scanner("fun multipleTimes(times, fn) {for (var i = 1; i <= times; i = i+1) {fn(i);}}\nmultipleTimes(3, fun(a) {print a;});").scanTokens()).parse());
+        assertEquals("1\n2\n3\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+    }
+
+    @Test
+    void passNamedFuncAsArgument() {
+        new Interpreter().interpret(new Parser(new Scanner("fun printThing(x) {print x;}\n fun thrice(fn) {for (var i = 1; i <= 3; i = i+1) {fn(i);}}\n thrice(printThing);").scanTokens()).parse());
+        assertEquals("1\n2\n3\n", stdOutCapture.toString());
+        stdOutCapture.reset();
+    }
 }

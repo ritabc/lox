@@ -30,7 +30,7 @@ public class Parser {
 
     private Stmt declaration() {
         try {
-            if (match(TokenType.FUN)) return function("function");
+            if (match(TokenType.FUN)) return funDecl("function");
             if (match(TokenType.VAR)) return varDeclaration();
 
             return statement();
@@ -40,25 +40,19 @@ public class Parser {
         }
     }
 
-    private Stmt.Function function(String kind) {
-        Token name = consume(TokenType.IDENTIFIER, "Expect " + kind + " name.");
-        consume(TokenType.LEFT_PAREN, "Expect '(' after " + kind + " name.");
-        List<Token> parameters = new ArrayList<>();
-        if (!check(TokenType.RIGHT_PAREN)) { // handles zero-param case
-            do {
-                if (parameters.size() >= 255) {
-                    error(peek(), "Can't have more than 255 parameters.");
-                }
-
-                parameters.add(consume(TokenType.IDENTIFIER, "Expect parameter name." ));
-            } while (match(TokenType.COMMA));
+    private Stmt funDecl(String kind) {
+        Token name = null;
+        if (!check(TokenType.RIGHT_PAREN)) {
+            name = consume(TokenType.IDENTIFIER, "Expect " + kind + " name.");
         }
-        consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
+
+        List<Token> parameters = parseFunParams(kind);
 
         consume(TokenType.LEFT_BRACE, "Expect '{' before " + kind + " body.");
         List<Stmt> body = block();
 
-        return new Stmt.Function(name, parameters, body);
+        return new Stmt.FunDecl(name, parameters, body);
+
     }
 
     private Stmt varDeclaration() {
@@ -350,16 +344,51 @@ public class Parser {
     // parse the call expression using the previously parsed expression as the callee
     // return the expr, which'll be the new expr and then we loop to see if that result is called
     private Expr call() {
-        Expr expr = primary();
-
-        while (true) {
-            if (match(TokenType.LEFT_PAREN)) {
-                expr = finishCall(expr);
-            } else {
-                break;
+        Expr expr = null;
+        if (match(TokenType.FUN)) {
+            expr = funExpr();
+        }
+        else {
+            expr = primary();
+            while (true) {
+                if (match(TokenType.LEFT_PAREN)) {
+                    expr = finishCall(expr);
+                } else {
+                    break;
+                }
             }
         }
         return expr;
+    }
+
+    private Expr funExpr() {
+        String kind = "anonymous function";
+
+        List<Token> parameters = parseFunParams(kind);
+
+        consume(TokenType.LEFT_BRACE, "Expect '{' before " + kind + " body.");
+        List<Stmt> body = block();
+
+        return new Expr.AnonFun(parameters, body);
+    }
+
+    // Used for parsing function parameters (Tokens - not argument values) for function declarations (which have a name) and funExprs (which are anonymous functions)
+    private List<Token> parseFunParams(String kind) {
+        consume(TokenType.LEFT_PAREN, "Expect '(' in " + kind + ".");
+        List<Token> parameters = new ArrayList<>();
+        if (!check(TokenType.RIGHT_PAREN)) { // handles zero-param case
+            do {
+                if (parameters.size() >= 255) {
+                    error(peek(), "Can't have more than 255 parameters.");
+                }
+
+                parameters.add(consume(TokenType.IDENTIFIER, "Expect parameter name."));
+            } while (match(TokenType.COMMA));
+        }
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
+
+        return parameters;
+
     }
 
     private Expr finishCall(Expr callee) {

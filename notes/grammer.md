@@ -76,9 +76,7 @@ program      -> declaration* EOF ;
 
 declaration  -> funDecl | varDecl | statment ;
 
-funDecl      -> "fun" function ;
-
-function     -> IDENTIFIER "(" parameters? ")" block ;
+funDecl     -> "fun" IDENTIFIER? "(" parameters? ")" block ;
 
 parameters   -> IDENTIFIER ( "," IDENTIFIER )* ;
 
@@ -109,8 +107,9 @@ comparison   -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term         -> factor ( ( "-" | "+" ) factor )* ;
 factor       -> unary ( ( "/" | "*" ) unary )* ;
 unary        -> (( "!" "-" ) unary) | call                // right-assoc
-call         -> primary ( "(" arguments ")" )* ;          // allows us to do currying like fn(1)(2)(3), where each func only takes 1 arg but returns a func that takes another arg
+call         -> funExpr | primary ( "(" arguments ")" )* ;          // allows us to do currying like fn(1)(2)(3), where each func only takes 1 arg but returns a func that takes another arg
 arguments    -> expression ( "," expression )* ;
+anonFun      -> "fun" "(" parameters? ")" block ; // a function expression
 primary      -> NUMBER | STRING | "true" | "false" | "nil" 
              | IDENTIFIER | "(" expression ")" 
              

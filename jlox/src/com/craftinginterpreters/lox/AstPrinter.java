@@ -38,6 +38,12 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
     }
 
     @Override
+    public String visitAnonFunExpr(Expr.AnonFun expr) {
+        // TODO
+        return null;
+    }
+
+    @Override
     public String visitGroupingExpr(Expr.Grouping expr) {
         return parenthesize("group", expr.expression);
     }
@@ -96,7 +102,7 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
     }   ====> (func (params first last) (body (print "...")))
      */
     @Override
-    public String visitFunctionStmt(Stmt.Function stmt) {
+    public String visitFunDeclStmt(Stmt.FunDecl stmt) {
         StringBuilder sb = new StringBuilder();
         sb.append("(func (params ");
         for (Token param : stmt.params) {
