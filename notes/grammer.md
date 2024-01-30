@@ -60,6 +60,33 @@ program     -> declaration* EOF ;
 declaration -> varDecl | statement ; 
 statement   -> exprStmt | printStmt ;
 ```
+**Issue** Lox uses lexical aka static scope. Static scope is defined as: **A variable usage refers to the preceding declaration with the same name in the innermost scope that encloses the expression where the variable is used.**, where 'use' means variables as expressions AND assignments. Per that definition, the following code should print 'global' twice:
+```
+var a = "global";
+{
+  fun showA() {
+    print a;
+  }
+
+  showA();
+  var a = "block";
+  showA();
+}
+```
+because with the second call to `showA()`, the /usage/ of `a` is still happens in the `showA` declaration, and the preceding decl with the same name in the innermost enclosing scope would mean `a` evaluates to 'global'. The code above however, prints 'global' then 'block'. 
+This is because of the way our environments are implemented. 
+What happens currently:
+- When we declare `showA`
+- the declaration captures the current environment 
+- Then, we mutate the environment with `var a = "block";`
+- when we call `showA()` the second time, we use the mutated environment
+A better way to think about lexically scoped langs, aka how they theoretically **should** work (although we'll fix this closure bug in lox differently, as this approach was deemed to require rewriting too much code)
+- When we declare `showA`
+- the declaration captures the current environment 
+- Then, when we go to add something to the env, we first make a **copy** of the current environment, then add to that
+- when we call `showA()` the second time, we use that new environment inspired by the original.
+**Solution** Using Semantic Analysis. Semantic Analysis is like a parser, but instead of only telling us if the program is grammatically correct (syntactic analysis), this will start to figure out what pieces of the program actually mean. We will write semantic analysis code to resolve variable bindings (we'll know this expression is a variable, and which variable is it?). It will resolve the variable bindings by walking the environment chain the same number of times for each resolution of a specific variable expression. The parser would be a good place for this, but for practice we'll make a separate pass. 
+
 # Other notes
 - Usually, a named function declaration is actually 2 distinct steps (1) creating a new func obj, and (2) binding a new variable to it. This requires anonymous funcs, like:
 ```
