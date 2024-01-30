@@ -38,6 +38,11 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
     }
 
     @Override
+    public String visitGetExpr(Expr.Get expr) {
+        return null;
+    }
+
+    @Override
     public String visitGroupingExpr(Expr.Grouping expr) {
         return parenthesize("group", expr.expression);
     }
@@ -47,6 +52,11 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
         if (expr.value == null) return "nil";
         if (expr.value instanceof String) return "\"" + expr.value + "\"";
         return expr.value.toString();
+    }
+
+    @Override
+    public String visitSetExpr(Expr.Set expr) {
+        return null;
     }
 
     /*
@@ -77,6 +87,11 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
         }
         sb.append(")");
         return sb.toString();
+    }
+
+    @Override
+    public String visitClassStmt(Stmt.Class stmt) {
+        return null; // TODO
     }
 
     /*

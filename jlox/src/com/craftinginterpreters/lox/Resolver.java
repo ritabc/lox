@@ -43,9 +43,10 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         return null;
     }
 
+    // Object properties are looked up dynamically so they don't get resolved
     @Override
-    public Void visitAnonFunExpr(Expr.AnonFun expr) {
-        resolveFunction(new Stmt.FunDecl(null, expr.params, expr.body), FunctionType.FUNCTION);
+    public Void visitGetExpr(Expr.Get expr) {
+        resolve(expr.object);
         return null;
     }
 
@@ -57,6 +58,13 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitLiteralExpr(Expr.Literal expr) {
+        return null;
+    }
+
+    @Override
+    public Void visitSetExpr(Expr.Set expr) {
+        resolve(expr.value);
+        resolve(expr.object);
         return null;
     }
 
@@ -100,6 +108,19 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         return null;
     }
 
+    // permit declaring a class as a local variable, which is uncommon but should be handled correctly
+    @Override
+    public Void visitClassStmt(Stmt.Class stmt) {
+        declare(stmt.name);
+        define(stmt.name);
+
+        for (Stmt.Function method : stmt.methods) {
+            FunctionType declaration = FunctionType.METHOD;
+            resolveFunction(method, declaration);
+        }
+        return null;
+    }
+
     @Override
     public Void visitExpressionStmt(Stmt.Expression stmt) {
         resolve(stmt.expression);
@@ -108,7 +129,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     // A function declaration introduces a new scope for its body and binds its parameters in that scope.
     @Override
-    public Void visitFunDeclStmt(Stmt.FunDecl stmt) {
+    public Void visitFunctionStmt(Stmt.Function stmt) {
         if (stmt.name != null) {
             declare(stmt.name);
             define(stmt.name); // a function, unlike variables, may recursively refer to itself in its own body;
@@ -219,7 +240,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     // creates a new scope for the body and bind variables for each of the function's parameters
     // Takes functionType so we can tell whether we're inside a func declaration, which we need to know when resolving a return stmt
-    private void resolveFunction(Stmt.FunDecl function, FunctionType type) {
+    private void resolveFunction(Stmt.Function function, FunctionType type) {
         FunctionType enclosingFunction = currentFunction;
         currentFunction = type;
         beginScope();

@@ -101,7 +101,9 @@ but we will just always use named functions
 
 program      -> declaration* EOF ;
 
-declaration  -> funDecl | varDecl | statment ;
+declaration  -> classDecl | funDecl | varDecl | statment ;
+
+classDecl    -> "class" IDENTIFIER "{" function* "}" ;
 
 funDecl      -> "fun" function ;
 
@@ -127,7 +129,7 @@ block        -> "{" declaration* "}" ;
 
 
 expression   -> assignment ;
-assignment   -> IDENTIFIER "=" assignment | ternary ;        // right-assoc
+assignment   -> (call ".")? IDENTIFIER "=" assignment | ternary ;        // right-assoc
 ternary      -> logic_or ("?" ternary ":" ternary )* ;     // right-assoc
 logic_or     -> logic_and ( "or" logic_and )* ;
 logic_and    -> equality ( "and" equality )* ;
@@ -136,7 +138,7 @@ comparison   -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term         -> factor ( ( "-" | "+" ) factor )* ;
 factor       -> unary ( ( "/" | "*" ) unary )* ;
 unary        -> (( "!" "-" ) unary) | call                // right-assoc
-call         -> primary ( "(" arguments ")" )* ;          // allows us to do currying like fn(1)(2)(3), where each func only takes 1 arg but returns a func that takes another arg
+call         -> primary ( ( "(" arguments? ")" ) | ( "." IDENTIFIER ) )* ;          // allows us to do currying like fn(1)(2)(3), where each func only takes 1 arg but returns a func that takes another arg
 arguments    -> expression ( "," expression )* ;
 primary      -> NUMBER | STRING | "true" | "false" | "nil" 
              | IDENTIFIER | "(" expression ")" 

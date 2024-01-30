@@ -28,3 +28,5 @@
 1. C-style block comments
 1. For more practice with visitor pattern, implement printer for Reverse Polish notation, where `(1 + 2) * (4 - 3)` becomes `1 2 + 4 3 - *` (note there will be ambiguity with negation vs subtraction, so it'll be necessary to redefine `~` as the negation symbol)
 1. Add C-style ternary operator
+1. Add suppport for break statements (branch: break-stmts)
+1. Add support for anonymous functions (branch: anon-funcs)
