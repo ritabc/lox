@@ -33,3 +33,13 @@
 1. Add C-style ternary operator
 1. Add suppport for break statements (branch: break-stmts)
 1. Add support for anonymous functions (branch: anon-funcs)
+1. Add support for "static" class methods using metaclasses. A static class method can be added like so:
+```
+class Math {
+  class square(n) {
+    return n * n;
+  }
+}
+print Math.square(3) // 9 
+```
+A separate metaclass exists for each class. It holds any static (class) methods of the class. 

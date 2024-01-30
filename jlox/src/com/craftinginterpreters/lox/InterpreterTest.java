@@ -374,6 +374,24 @@ class InterpreterTest {
         resolver.resolve(stmts);
         interpreter.interpret(stmts);
         assertEquals("Jane\n", stdOutCapture.toString());
+    }
+
+    @Test
+    void staticMethodsAndFields() {
+        Interpreter interpreter = new Interpreter();
+        Resolver resolver = new Resolver(interpreter);
+        List<Stmt> stmts = new Parser(new Scanner(
+                "class Math {" +
+                        "   class square(n) {" +
+                        "       return n * n;" +
+                        "   }" +
+                        "}" +
+                        "Math.pi = 3.141592653;" +
+                        "print Math.square(3);" +
+                        "print Math.pi;").scanTokens()).parse();
+        resolver.resolve(stmts);
+        interpreter.interpret(stmts);
+        assertEquals("9\n3.141592653\n", stdOutCapture.toString());
 
     }
 }
