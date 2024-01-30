@@ -52,6 +52,24 @@ public class Environment {
         throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
     }
 
+    /* Instead of walking up the chain and finding the first (innermost) enclosing-env matching variable, we go exactly the number of chain-link hops we need.
+    B/c of our closures bug where a function declaration which references a global variable will not behave in accordance with lexical scope rules if the global var is re-declared (& reassigned), and THEN the func is called.
+    To fix this bug, when the func declaration occurs, and a variable expression is used inside of it, the distance in the outwards direction of the appropriate var declaration is stored by the resolver. Every time that variable expression is accessed it'll be in the same scope, thus will have the same depth.
+     */
+    Object getAt(int distance, String name) {
+        return ancestor(distance).values.get(name);
+    }
+
+    Environment ancestor(int distance) {
+        Environment environment = this;
+        for (int i = 0; i < distance; i++) {
+            environment = environment.enclosing;
+        }
+
+        return environment;
+    }
+
+
     // Like define, except does not allow assignment if the variable does not already exist. Also, recursively check enclosing environments up the chain
     void assign(Token name, Object value) {
         if (values.containsKey(name.lexeme)) {
@@ -65,5 +83,9 @@ public class Environment {
         }
 
         throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
+    }
+
+    void assignAt(int distance, Token name, Object value) {
+        ancestor(distance).values.put(name.lexeme, value);
     }
 }

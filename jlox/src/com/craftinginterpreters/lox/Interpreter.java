@@ -1,7 +1,9 @@
 package com.craftinginterpreters.lox;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
@@ -11,6 +13,11 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     // the current environment
     private Environment environment = globals;
+
+    // Instead of storing the scope-depth of each variable in the syntax tree node, we'll store them off to the side in a map that associates every syntax tree node with its resolved data
+    // This will make it easy to clear/discard as well.
+    // Since each key will be its own expression aka its own Java object with unique identity, we won't need a nested tree structure
+    private final Map<Expr, Integer> locals = new HashMap<>();
 
     Interpreter() {
         globals.define("clock", new LoxCallable() {
@@ -77,7 +84,7 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Object visitVariableExpr(Expr.Variable expr) {
-        return environment.get(expr.name);
+        return lookupVariable(expr.name, expr);
     }
 
     @Override
@@ -154,7 +161,13 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Object visitAssignExpr(Expr.Assign expr) {
         Object value = evaluate(expr.value);
-        environment.assign(expr.name, value);
+
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            environment.assignAt(distance, expr.name, value);
+        } else {
+            globals.assign(expr.name, value);
+        }
         return value; // allows for: print a = 2; // 2
     }
 
@@ -228,6 +241,21 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
             execute(stmt.body);
         }
         return null;
+    }
+
+    // Each time the resolver visits a variable, it tells the interpreter how many scopes exist between the current scope & the scope in which the variable is defined. This resolve function is called when variables are visited, and the depth is handed to the interpreter here.
+    void resolve(Expr expr, int depth) {
+        locals.put(expr, depth);
+    }
+
+    // Look up a resolved variable (but only if its local) and take advantage of our static analysis
+    private Object lookupVariable(Token name, Expr expr) {
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            return environment.getAt(distance, name.lexeme);
+        } else {
+            return globals.get(name);
+        }
     }
 
     // statement version of evaluate
