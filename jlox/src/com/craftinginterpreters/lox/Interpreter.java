@@ -67,6 +67,11 @@ public class Interpreter implements  Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return value;
     }
 
+    @Override
+    public Object visitThisExpr(Expr.This expr) {
+        return lookupVariable(expr.keyword, expr);
+    }
+
     // returns not a strict bool true/false, but a value with the appropriate truthiness
     @Override
     public Object visitLogicalExpr(Expr.Logical expr) {

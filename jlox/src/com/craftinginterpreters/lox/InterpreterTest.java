@@ -4,6 +4,7 @@ import org.junit.jupiter.api.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.nio.file.LinkPermission;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -249,8 +250,11 @@ class InterpreterTest {
 
     @Test
     void forStmt() { // fib #'s under 10000
+        Interpreter interpreter = new Interpreter();
+        Resolver resolver = new Resolver(interpreter);
         List<Stmt> stmts = new Parser(new Scanner("var a = 0; var temp; for (var b = 1; a < 10000; b = temp + b) { print a; temp = a; a = b; }").scanTokens()).parse();
-        new Interpreter().interpret(stmts);
+        resolver.resolve(stmts);
+        interpreter.interpret(stmts);
         assertEquals("0\n" +
                 "1\n" +
                 "1\n" +
@@ -278,16 +282,98 @@ class InterpreterTest {
 
     @Test
     void funcDeclStmtAndCallExpr() {
-        new Interpreter().interpret(new Parser(new Scanner("fun fib(n) { if (n <= 1) return n; return fib(n-2) + fib(n-1); }\nfor (var i = 0; i < 20; i = i+1) { print fib(i); }\n").scanTokens()).parse());
+        Interpreter interpreter = new Interpreter();
+        Resolver resolver = new Resolver(interpreter);
+        List<Stmt> stmts = new Parser(new Scanner("fun fib(n) { if (n <= 1) return n; return fib(n-2) + fib(n-1); }\nfor (var i = 0; i < 20; i = i+1) { print fib(i); }\n").scanTokens()).parse();
+        resolver.resolve(stmts);
+        interpreter.interpret(stmts);
         assertEquals("0\n1\n1\n2\n3\n5\n8\n13\n21\n34\n55\n89\n144\n233\n377\n610\n987\n1597\n2584\n4181\n", stdOutCapture.toString());
         stdOutCapture.reset();
     }
 
     @Test
     void funcClosures() {
-        new Interpreter().interpret(new Parser(new Scanner("fun makeCounter() { var i = 0; fun count() { i = i + 1; print i; } return count; }\n" +
-                "var counter = makeCounter(); counter(); counter();").scanTokens()).parse());
+        Interpreter interpreter = new Interpreter();
+        Resolver resolver = new Resolver(interpreter);
+        List<Stmt> stmts = new Parser(new Scanner("fun makeCounter() { var i = 0; fun count() { i = i + 1; print i; } return count; }\n" +
+                "var counter = makeCounter(); counter(); counter();").scanTokens()).parse();
+        resolver.resolve(stmts);
+        interpreter.interpret(stmts);
         assertEquals("1\n2\n", stdOutCapture.toString());
         stdOutCapture.reset();
+    }
+
+    @Test
+    void funcThis() {
+        Interpreter interpreter = new Interpreter();
+        Resolver resolver = new Resolver(interpreter);
+        List<Stmt> stmts = new Parser(new Scanner(
+                "class Cake { " +
+                        "   taste() {" +
+                        "       var adjective = \"delicious\"; " +
+                        "       print \"The \" + this.flavor + \" cake is \" + adjective + \"!\";" +
+                        "   }" +
+                        "} " +
+                        "var cake = Cake(); " +
+                        "cake.flavor = \"German chocolate\"; " +
+                        "cake.taste();").scanTokens()).parse();
+        resolver.resolve(stmts);
+        interpreter.interpret(stmts);
+        assertEquals("The German chocolate cake is delicious!\n", stdOutCapture.toString());
+    }
+
+    @Test
+    void storeMethodAsVariable() {
+        Interpreter interpreter = new Interpreter();
+        Resolver resolver = new Resolver(interpreter);
+        List<Stmt> stmts = new Parser(new Scanner(
+                "class Cake {howMuchFrosting() {print \"Lots!\";}}" +
+                        "var cake = Cake();" +
+                        "var frostingMethod = cake.howMuchFrosting;" +
+                        "frostingMethod();").scanTokens()).parse();
+        resolver.resolve(stmts);
+        interpreter.interpret(stmts);
+        assertEquals("Lots!\n", stdOutCapture.toString());
+    }
+
+    @Test
+    void storeFunctionInInstanceField() {
+        Interpreter interpreter = new Interpreter();
+        Resolver resolver = new Resolver(interpreter);
+        List<Stmt> stmts = new Parser(new Scanner(
+                "class Box {}" +
+                        "fun notMethod(argument) {" +
+                            "print \"called function with \" + argument;" +
+                        "}" +
+                        "var box = Box();" +
+                        "box.function = notMethod;" +
+                        "box.function(\"argument\");").scanTokens()).parse();
+        resolver.resolve(stmts);
+        interpreter.interpret(stmts);
+        assertEquals("called function with argument\n", stdOutCapture.toString());
+    }
+
+    @Test
+    void thisBoundToOriginalInstanceWhenMethodFirstGrabbed() {
+        Interpreter interpreter = new Interpreter();
+        Resolver resolver = new Resolver(interpreter);
+        List<Stmt> stmts = new Parser(new Scanner(
+                "class Person {" +
+                        "   sayName() {" +
+                        "       print this.name;" +
+                        "   }" +
+                        "}" +
+                        "var jane = Person();" +
+                        "jane.name = \"Jane\";" +
+                        "" +
+                        "var bill = Person();" +
+                        "bill.name = \"Bill\";" +
+                        "" +
+                        "bill.sayName = jane.sayName;" +
+                        "bill.sayName();").scanTokens()).parse();
+        resolver.resolve(stmts);
+        interpreter.interpret(stmts);
+        assertEquals("Jane\n", stdOutCapture.toString());
+
     }
 }

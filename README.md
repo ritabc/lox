@@ -17,10 +17,12 @@
 -- Add a builtin func, clock(), which is a wrapper around Java's System.currentTimeMillis()
 -- throw runtime Lox exception from interpreter when user attempts to call something that isn't callable, like a String. (Instead of allowing a java exception to be seen)
 -- For now, we'll always set the function's body's parent env as the top-level global environment. So if an identifier isn't defined in the function itself, the interpreter will look outside the func and in the global scope. However, this means functions nested inside blocks or other functions, aka local functions, and closures are not yet supported.
+1. (Around about here, stop updating AstPrinter visitor)
 1. Add support for closures.
 1. Fix bug adding support for closures introduced, using Resolver - see grammar.md for more info
 1. Use resolver to detect errors redeclaring variables twice in same local scope
 1. Disallow returnStmt outside of function
+1. Add support for classes, including this keyword to access self within a class
 
 ### Additional features
 #### Shown with link to another branch if that was deemed necessary

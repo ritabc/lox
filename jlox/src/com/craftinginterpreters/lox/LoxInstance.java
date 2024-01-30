@@ -20,7 +20,9 @@ public class LoxInstance {
         }
 
         LoxFunction method = klass.findMethod(name.lexeme);
-        if (method != null) return method;
+
+        // create a new env nestled inside the methods' original closure
+        if (method != null) return method.bind(this);
 
         throw new RuntimeError(name, "Undefined property '" + name.lexeme + "'.");
     }
