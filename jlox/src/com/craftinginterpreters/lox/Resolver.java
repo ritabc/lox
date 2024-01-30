@@ -6,6 +6,17 @@ import java.util.Map;
 import java.util.Stack;
 
 public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
+
+    private enum FunctionType {
+        NONE,
+        FUNCTION,
+        METHOD
+    }
+
+    private enum ClassType {
+        NONE, CLASS
+    }
+
     private final Interpreter interpreter;
 
     // A field representing a stack of (local) scopes. Each stack element is a map which represents a single block scope. Keys are variable names. Values are Boolean which represent whether it's been intialized and is ready for use
@@ -13,6 +24,9 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     private final Stack<Map<String, Boolean>> scopes = new Stack();
 
     private FunctionType currentFunction = FunctionType.NONE;
+
+    // Tells us if we are currently in a class declaration - will help to disallaw 'this' exprs outside of where appropriate
+    private ClassType currentClass = ClassType.NONE;
 
     Resolver(Interpreter interpreter) {
         this.interpreter = interpreter;
@@ -68,6 +82,17 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         return null;
     }
 
+    // this works like a variable here - use 'this' as the 'variable' name
+    @Override
+    public Void visitThisExpr(Expr.This expr) {
+        if (currentClass == ClassType.NONE) {
+            Lox.error(expr.keyword, "Can't use 'this' outside of a class.");
+            return null;
+        }
+        resolveLocal(expr, expr.keyword);
+        return null;
+    }
+
     @Override
     public Void visitLogicalExpr(Expr.Logical expr) {
         resolve(expr.left);
@@ -111,13 +136,26 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     // permit declaring a class as a local variable, which is uncommon but should be handled correctly
     @Override
     public Void visitClassStmt(Stmt.Class stmt) {
+        ClassType enclosingClass = currentClass;
+        currentClass = ClassType.CLASS;
+
         declare(stmt.name);
         define(stmt.name);
+
+        // In order for 'this' to resolve to a local variable when it's encountered in a method:
+        // Before stepping in and resolving method bodies, push a new scope
+        beginScope();
+        // and declare & define 'this', as if it were a variable, in the scope
+        scopes.peek().put("this", true);
 
         for (Stmt.Function method : stmt.methods) {
             FunctionType declaration = FunctionType.METHOD;
             resolveFunction(method, declaration);
         }
+
+        endScope();
+        currentClass = enclosingClass;
+
         return null;
     }
 

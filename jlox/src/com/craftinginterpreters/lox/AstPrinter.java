@@ -59,6 +59,11 @@ public class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String>
         return null;
     }
 
+    @Override
+    public String visitThisExpr(Expr.This expr) {
+        return null;
+    }
+
     /*
     val1 and val2 ==> (and val1 val2)
      */
