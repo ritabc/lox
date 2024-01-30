@@ -23,6 +23,7 @@
 1. Use resolver to detect errors redeclaring variables twice in same local scope
 1. Disallow returnStmt outside of function
 1. Add support for classes, including this keyword to access self within a class
+1. Add constructors & initializers, allow init() to be invoked directly, like instance.init(), disallow returning a value from init(). But allow empty return statement (which has no value) from init, but return this instead of nil
 
 ### Additional features
 #### Shown with link to another branch if that was deemed necessary
