@@ -103,7 +103,7 @@ program      -> declaration* EOF ;
 
 declaration  -> classDecl | funDecl | varDecl | statment ;
 
-classDecl    -> "class" IDENTIFIER "{" function* "}" ;
+classDecl    -> "class" IDENTIFIER ( "<" IDENTIFIER )? "{" function* "}" ;
 
 funDecl      -> "fun" function ;
 
@@ -141,7 +141,7 @@ unary        -> (( "!" "-" ) unary) | call                // right-assoc
 call         -> primary ( ( "(" arguments? ")" ) | ( "." IDENTIFIER ) )* ;          // allows us to do currying like fn(1)(2)(3), where each func only takes 1 arg but returns a func that takes another arg
 arguments    -> expression ( "," expression )* ;
 primary      -> NUMBER | STRING | "true" | "false" | "nil" 
-             | IDENTIFIER | "(" expression ")" 
+             | IDENTIFIER | "(" expression ")" | ( "super" "." IDENTIFIER ) ; 
              
 varDecl      -> "var" IDENTIFIER ( "=" expression )? ";" ;
 ```

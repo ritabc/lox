@@ -374,6 +374,45 @@ class InterpreterTest {
         resolver.resolve(stmts);
         interpreter.interpret(stmts);
         assertEquals("Jane\n", stdOutCapture.toString());
+    }
 
+    @Test
+    void inheritingMethods() {
+                Interpreter interpreter = new Interpreter();
+        Resolver resolver = new Resolver(interpreter);
+        List<Stmt> stmts = new Parser(new Scanner(
+                "class Doughnut {" +
+                        "   cook() {" +
+                        "       print \"Fry until golden brown.\";" +
+                        "   }" +
+                        "}" +
+                        "class BostonCream < Doughnut {}" +
+                        "BostonCream().cook();").scanTokens()).parse();
+        resolver.resolve(stmts);
+        interpreter.interpret(stmts);
+        assertEquals("Fry until golden brown.\n", stdOutCapture.toString());
+    }
+
+    @Test
+    void callingSuperMethods() {
+                Interpreter interpreter = new Interpreter();
+        Resolver resolver = new Resolver(interpreter);
+        List<Stmt> stmts = new Parser(new Scanner(
+                "class Doughnut {" +
+                        "   cook() {" +
+                        "       print \"Fry until golden brown.\";" +
+                        "   }" +
+                        "}" +
+                        "class BostonCream < Doughnut {" +
+                        "   cook() {" +
+                        "       super.cook();" +
+                        "       print \"Pipe full of custard and coat with chocolate.\";" +
+                        "   }" +
+                        "}" +
+                        "BostonCream().cook();").scanTokens()).parse();
+        resolver.resolve(stmts);
+        interpreter.interpret(stmts);
+        assertEquals("Fry until golden brown.\n" +
+                "Pipe full of custard and coat with chocolate.\n", stdOutCapture.toString());
     }
 }

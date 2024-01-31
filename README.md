@@ -1,5 +1,5 @@
 # Lox: Implementations in Java and C
-#### Learning Material and Exercises from [Crafting Interpreters](craftinginterpreters.com) by Bob Nystrom
+#### Working through [Crafting Interpreters](craftinginterpreters.com) by Bob Nystrom
 
 
 ### Features Added
@@ -24,6 +24,7 @@
 1. Disallow returnStmt outside of function
 1. Add support for classes, including this keyword to access self within a class
 1. Add constructors & initializers, allow init() to be invoked directly, like instance.init(), disallow returning a value from init(). But allow empty return statement (which has no value) from init, but return this instead of nil
+1. Add inheritance, including of methods, and calling superclass methods with the `super` keyword. 
 
 ### Additional features
 #### Shown with link to another branch if that was deemed necessary
@@ -33,3 +34,14 @@
 1. Add C-style ternary operator
 1. Add suppport for break statements (branch: break-stmts)
 1. Add support for anonymous functions (branch: anon-funcs)
+1. Add support for "static" class methods using metaclasses. A static class method can be added like so:
+```
+class Math {
+  class square(n) {
+    return n * n;
+  }
+}
+print Math.square(3) // 9 
+```
+A separate metaclass exists for each class. It holds any static (class) methods of the class.
+(branch: class-methods)
