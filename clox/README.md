@@ -4,7 +4,7 @@
 ### Features Added
 **Chapter 14** 
 1. Created foundation for chunks. A chunk is a sequence of instructions, and we've built a dynamic array structure for a Chunk. The Chunk struct now holds an array of bytes, in which we can store OpCodes.
-2. 
+2. Create a disassembler that takes a chunk and prints all the instructions in it. It'll be used by us, lox maintainers, but not lox users. See the debug files
 
 
 ### Additional features
