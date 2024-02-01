@@ -6,11 +6,13 @@ A chunk is a sequence of bytecode
 #define CLOX_CHUNK_H
 
 #include "common.h"
+#include "value.h"
 
 // An Operation Code, or opcode, is 1 byte.
 // It tells us what kind of instruction we're working with
 // Each instruction will have an opcode
 typedef enum {
+    OP_CONSTANT,
     OP_RETURN,
 } OpCode;
 
@@ -21,10 +23,12 @@ typedef struct {
     int count;
     int capacity;
     uint8_t* code;
+    ValueArray constants
 } Chunk;
 
 void initChunk(Chunk* chunk);
 void freeChunk(Chunk* chunk);
 void writeChunk(Chunk* chunk, uint8_t byte);
+int addConstant(Chunk* chunk, Value value);
 
 #endif //CLOX_CHUNK_H

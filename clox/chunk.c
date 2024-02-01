@@ -10,22 +10,18 @@ void initChunk(Chunk* chunk) {
     chunk->count = 0;
     chunk->capacity = 0;
     chunk->code = NULL;
+    initValueArray(&chunk->constants);
 }
 
 void freeChunk(Chunk* chunk) {
     FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
+    freeValueArray(&chunk->constants);
     initChunk(chunk);
 }
 
 /*
- * If array capacity isn't large enough:
-1. Allocate a new array with more capacity.
-2. Copy the existing elements from the old array to the new one.
-3. Store the new capacity.
-4. Delete the old array.
-5. Update code to point to the new array.
-6. Store the element in the new array now that there is room.
-7. Update the count.
+ * Writes a byte to the chunk, expanding the chunk if necessary.
+ * The byte written can be an opcode, or an operand (like a ValueArray constant aka an index to a constant value)
  */
 void writeChunk(Chunk* chunk, uint8_t byte) {
     if (chunk->capacity < chunk->count + 1) {
@@ -36,4 +32,13 @@ void writeChunk(Chunk* chunk, uint8_t byte) {
 
     chunk->code[chunk->count] = byte;
     chunk->count++;
+}
+
+/*
+ * A convenience method to add a new constant to the chunk('s ValueArray)
+ * Return the index of the added constant
+ */
+int addConstant(Chunk* chunk, Value value) {
+    writeValueArray(&chunk->constants, value);
+    return chunk->constants.count - 1;
 }
