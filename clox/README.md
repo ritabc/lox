@@ -8,7 +8,8 @@
 3. Store constants (literals) in a constant pool, ValueArray. It'll be a dynamic array of values. An instruction using a constant looks up the value by index there. Each chunk has its own ValueArray. The opcode OP_CONSTANT produces the literal value. Also add debug funcs so we can print the value of the OP_CONSTANT instruction
 4. Store line #'s in a separate field in the chunk. This is simple, and a bit inefficient, but a pro is that it's stored separately from the instructions themselves, which is good b/c we only access it when there's a runtime error. 
 5. Add a VM
-6. Add infrastructure for a value stack, using stack-based (instead of register based
+6. Add infrastructure for a value stack, using stack-based (instead of register based)
+7. Setup REPL and runFile functions to read user input (source code)
 
 ### Additional features
 ###### generated from exercises in text
