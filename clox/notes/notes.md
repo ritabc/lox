@@ -11,3 +11,7 @@
 * to start, source code is input to the scanner
 * Tokens flow from scanner->compiler
 * chunks of bytecode flow from compiler->VM
+
+* In jlox, we sent the source through a scanner and received a list of tokens. In clox, that'd require a dynamic array and a lot of overhead
+* our compiler will only need 1 or 2 tokens at once (our grammer only requires a single token of lookahead), so don't scan until the compiler needs a token
+* So the scanner will return the token by value
