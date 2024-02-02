@@ -35,6 +35,21 @@ static int simpleInstruction(const char* name, int offset) {
     return offset + 1;
 }
 
+/* getLine takes a chunk pointer and an offset, and looks up in the chunk's lineStarts which line that code is on
+ * // TODO: could convert this to binary search, but b/c we only use it when there's an error, it's also fine as is
+ */
+int getLineNumber(Chunk* chunk, int offset) {
+    for (int i = 0; i < chunk->lineStartsCount-1; i++) {
+        LineStart currStart = chunk->lineStarts[i];
+        LineStart nextStart = chunk->lineStarts[i+1];
+        if (offset >= currStart.offset && offset < nextStart.offset) {
+            return currStart.lineNumber;
+        }
+    }
+    // if we get here, offset is on last line
+    return chunk->lineStarts[chunk->lineStartsCount-1].lineNumber;
+}
+
 /*
  * Dissasemble a single instruction at chunk's offset
  * Print human-readable string for the instruction
@@ -44,10 +59,10 @@ static int simpleInstruction(const char* name, int offset) {
 int disassembleInstruction(Chunk* chunk, int offset) {
     printf("%04d ", offset);
 
-    if(offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
+    if(offset > 0 && getLineNumber(chunk, offset) == getLineNumber(chunk, offset - 1)) {
         printf("   | "); // same line as above
     } else {
-        printf("%4d ", chunk->lines[offset]);
+        printf("%4d ", getLineNumber(chunk, offset));
     }
 
     uint8_t instruction = chunk->code[offset];
