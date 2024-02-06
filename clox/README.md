@@ -13,6 +13,7 @@
 8. setup barebones scanner to take as input stream of source code
 9. Implement barebones Pratt parser that can handle grouping, unary, numbers, and some binary ops
 10. Add macros and structs for storing lox's dynamic types
+11. Support runtime errors and unary negation
 
 ### Additional features
 ###### generated from exercises in text
