@@ -15,6 +15,7 @@
 10. Add macros and structs for storing lox's dynamic types
 11. Support runtime errors and unary negation
 12. Support binary arithmetic operators
+13. Add nil and bools, not and falsiness
 
 ### Additional features
 ###### generated from exercises in text

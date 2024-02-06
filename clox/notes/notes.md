@@ -17,5 +17,5 @@
 * So the scanner will return the token by value
 
 #### Pratt Parsing
-* We'll use a table where we can look up a token type and find a function to parse & compile a prefix expression which starts with a token of that type (or a function to parse & compile an infix expression with left operand, then a token of that type) and the precedence of an infix expr that uses that token as an operator.
+* We'll use a table where we can look up a token type and find a(n optional) function to parse & compile a prefix expression which starts with a token of that type, an optional function to parse & compile an infix expression with left operand, then a token of that type, and the precedence of an infix expr that uses that token as an operator.
 * A row in this table will be represented by a ParseRule
