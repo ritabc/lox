@@ -11,7 +11,7 @@
 6. Add infrastructure for a value stack, using stack-based (instead of register based)
 7. Setup REPL and runFile functions to read user input (source code)
 8. setup barebones scanner to take as input stream of source code
-9. 
+9. Implement barebones Pratt parser that can handle grouping, unary, numbers, and some binary ops
 
 ### Additional features
 ###### generated from exercises in text

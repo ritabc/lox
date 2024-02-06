@@ -9,7 +9,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// when defined, our VM will disassemble (debug) each instruction before it's run 
+// when defined, use "debug" module to print out the chunk's bytecode
+#define DEBUG_PRINT_CODE
+
+// when defined, our VM will disassemble (debug) each instruction before it's run
 #define DEBUG_TRACE_EXECUTION
 
 #endif //CLOX_COMMON_H

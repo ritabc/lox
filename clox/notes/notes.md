@@ -15,3 +15,7 @@
 * In jlox, we sent the source through a scanner and received a list of tokens. In clox, that'd require a dynamic array and a lot of overhead
 * our compiler will only need 1 or 2 tokens at once (our grammer only requires a single token of lookahead), so don't scan until the compiler needs a token
 * So the scanner will return the token by value
+
+#### Pratt Parsing
+* We'll use a table where we can look up a token type and find a function to parse & compile a prefix expression which starts with a token of that type (or a function to parse & compile an infix expression with left operand, then a token of that type) and the precedence of an infix expr that uses that token as an operator.
+* A row in this table will be represented by a ParseRule
