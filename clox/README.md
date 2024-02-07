@@ -16,6 +16,7 @@
 11. Support runtime errors and unary negation
 12. Support binary arithmetic operators
 13. Add nil and bools, not and falsiness
+14. add support for strings, as StringObj which "inherit" from Obj, add cleanup funcs that will clean up VM before it exits (although our running VM won't free memory until we write the GC)
 
 ### Additional features
 ###### generated from exercises in text

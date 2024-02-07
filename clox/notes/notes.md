@@ -19,3 +19,20 @@
 #### Pratt Parsing
 * We'll use a table where we can look up a token type and find a(n optional) function to parse & compile a prefix expression which starts with a token of that type, an optional function to parse & compile an infix expression with left operand, then a token of that type, and the precedence of an infix expr that uses that token as an operator.
 * A row in this table will be represented by a ParseRule
+
+#### "Struct Inheritance"
+* Issue: We'll use heap allocated values as `Obj`s, which'll include strings, instances, and functions in lox. How to handle different payloads and sizes for `Obj`s? Tagged unions won't work b/c the Obj size will be VERY variable
+* Solution: Use 'struct inheritance' (Nystrom's term): an example of type punning, relies on structs and roughly follows how single-inheritance of state works in OO langs
+* Description:
+- Each `Obj` starts with a tag field which tells whether its a string/instance/etc. Then there are payload fields. Each type is a separate struct
+- For instance, `ObjString` struct's first field is Obj (which has the type field)
+- Because C specifies that while there may be unnamed padding within a struct, but there will be no padding at it's beginning, we are able to:
+- cast an `ObjString*` -> `Obj*`, then access the type field in `Obj`
+- So, every ObjString 'is' an Obj in the OOP sense of 'is'
+- See diagram here: https://craftinginterpreters.com/strings.html#struct-inheritance
+- Additionally, given an `Obj*`, you can 'downcast' it to an `ObjString*` 
+
+#### Garbage Collection
+* for now (after first adding `Obj`s and `ObjStrings`), create a linked list that stores every Obj. 
+* Do this intrusively - the Obj struct itself will be a ll node
+* So every Obj gets a pointer to the next Obj in the chain

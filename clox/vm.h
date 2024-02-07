@@ -17,6 +17,7 @@ typedef struct {
 
     Value stack[STACK_MAX];
     Value* stackTop; // ptr to stack element just past the element containing the top value on the stack, aka where the next value to be pushed will go
+    Obj* objects; // a linked list of heap-allocated Objs, for freeing purposes
 } VM;
 
 typedef enum {
@@ -24,6 +25,8 @@ typedef enum {
     INTERPRET_COMPILE_ERROR,
     INTERPRET_RUNTIME_ERROR,
 } InterpretResult;
+
+extern VM vm;
 
 void initVM();
 void freeVM();
