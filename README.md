@@ -1,5 +1,5 @@
-# lox implementations, in [Java](#jlox-an-implementation-of-lox-in-java) and [C](#clox-an-implementation-of-lox-in-c)
-#### An educational repository - working through [Crafting Interpreters](craftinginterpreters.com) by Bob Nystrom
+# Lox: [Java](#jlox-an-implementation-of-lox-in-java) and [C](#clox-an-implementation-of-lox-in-c) Implementations
+#### Learning Material and Challenges from "Crafting Interpreters" by Bob Nystrom
 
 ## jlox: An Implementation of lox in Java
 ### Features Added
@@ -33,8 +33,8 @@
 1. C-style block comments
 1. For more practice with visitor pattern, implement printer for Reverse Polish notation, where `(1 + 2) * (4 - 3)` becomes `1 2 + 4 3 - *` (note there will be ambiguity with negation vs subtraction, so it'll be necessary to redefine `~` as the negation symbol)
 1. Add C-style ternary operator
-1. Add suppport for break statements (branch: break-stmts)
-1. Add support for anonymous functions (branch: anon-funcs)
+1. Add suppport for break statements (branch: [break-stmts](https://github.com/ritabc/lox/tree/break-stmts))
+1. Add support for anonymous functions (branch: [anon-funcs](https://github.com/ritabc/lox/tree/anon-funcs))
 1. Add support for "static" class methods using metaclasses. A static class method can be added like so:
 ```
 class Math {
@@ -45,7 +45,7 @@ class Math {
 print Math.square(3) // 9 
 ```
 A separate metaclass exists for each class. It holds any static (class) methods of the class.
-(branch: class-methods)
+(branch: [class-methods](https://github.com/ritabc/lox/tree/class-methods))
 
 ## clox: An Implementation of lox in C
 ### Features Added
