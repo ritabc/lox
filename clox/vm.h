@@ -6,6 +6,7 @@
 #define CLOX_VM_H
 
 #include "chunk.h"
+#include "table.h"
 #include "value.h"
 
 #define STACK_MAX 256
@@ -16,8 +17,15 @@ typedef struct {
     uint8_t* ip; // instruction pointer or program counter. Points to instruction about to be executed
 
     Value stack[STACK_MAX];
-    Value* stackTop; // ptr to stack element just past the element containing the top value on the stack, aka where the next value to be pushed will go
-    Obj* objects; // a linked list of heap-allocated Objs, for freeing purposes
+
+    // ptr to stack element just past the element containing the top value on the stack, aka where the next value to be pushed will go
+    Value* stackTop;
+
+    // A table to store strings for string interning (deduplication, as in, not duplicated) purposes
+    Table strings;
+
+    // a linked list of heap-allocated Objs, for freeing purposes
+    Obj* objects;
 } VM;
 
 typedef enum {

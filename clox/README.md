@@ -17,6 +17,15 @@
 12. Support binary arithmetic operators
 13. Add nil and bools, not and falsiness
 14. add support for strings, as StringObj which "inherit" from Obj, add cleanup funcs that will clean up VM before it exits (although our running VM won't free memory until we write the GC)
+15. Add hash tables. Included in the implementation are a tombstone delete method:
+ - upon deletion store a tombstone entry (key=NULL, value=TrueValue)
+ - findEntry returns entry with key = NULL if no entry found with given key. This'll either be a totally empty entry or the first tombstone (key=NULL, value=TrueValue) encountered 
+ - findEntry could go into infinite loop if no empty slots are encountered, so we need keep track of tombstone count when resizing, and ensure the array is never completely full
+ -- for load factor, treat tombstones like full buckets to prevent infinite loop 
+ -- when deleting an entry, don't reduce the count. Count is not the # of entries in the hash table, but the number of entries + tombstones. 
+ -- So increment the count during insertion iff the new entry goes into a totally empty bucket, not a tombstone
+ -- when resizing the hash's array, throw out all tombstones (b/c during resize we copy all entries to new table)
+16. Use a hash table to do **string interning**: create a collection of 'interned' or 'internal' strings. Strings in the collection are guaranteed to be textually distinct. When encountering a string, look for a matching string in the collection. If found - use the original one. Otherwise, add the string to the collection. (sidenote: this is how ruby symbols are implemented). This will speed up string equality, but also: method calls & instance fields, which are looked up by name at runtime (since Lox is dynamically typed), will be much faster
 
 ### Additional features
 ###### generated from exercises in text

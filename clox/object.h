@@ -31,6 +31,7 @@ struct ObjString {
     Obj obj;
     int length;
     char* chars;
+    uint32_t hash; // cache the hash so we don't have to recompute it - works because ObjStrings are immutable
 };
 
 ObjString* takeString(char* chars, int length);
