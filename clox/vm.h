@@ -21,6 +21,8 @@ typedef struct {
     // ptr to stack element just past the element containing the top value on the stack, aka where the next value to be pushed will go
     Value* stackTop;
 
+    Table globals;
+
     // A table to store strings for string interning (deduplication, as in, not duplicated) purposes
     Table strings;
 
