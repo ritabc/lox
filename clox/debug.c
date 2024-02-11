@@ -35,6 +35,13 @@ static int simpleInstruction(const char* name, int offset) {
     return offset + 1;
 }
 
+// called with getting & setting a local. Unfortunately we won't give the local variable's name to the disassembler, which wouldn't be ideal if we implemented a debugger
+static int byteInstruction(const char* name, Chunk* chunk, int offset) {
+    uint8_t slot = chunk->code[offset+1];
+    printf("%-16s %d\n", name, slot);
+    return offset + 2;
+}
+
 /* getLine takes a chunk pointer and an offset, and looks up in the chunk's lineStarts which line that code is on
  * // TODO: could convert this to binary search, but b/c we only use it when there's an error, it's also fine as is
  */
@@ -77,6 +84,10 @@ int disassembleInstruction(Chunk* chunk, int offset) {
             return simpleInstruction("OP_FALSE", offset);
         case OP_POP:
             return simpleInstruction("OP_POP", offset);
+        case OP_GET_LOCAL:
+            return byteInstruction("OP_GET_LOCAL", chunk, offset);
+        case OP_SET_LOCAL:
+            return byteInstruction("OP_SET_LOCAL", chunk, offset);
         case OP_GET_GLOBAL:
             return constantInstruction("OP_GET_GLOBAL", chunk, offset);
         case OP_DEFINE_GLOBAL:

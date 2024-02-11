@@ -72,6 +72,8 @@ A separate metaclass exists for each class. It holds any static (class) methods 
  -- So increment the count during insertion iff the new entry goes into a totally empty bucket, not a tombstone
  -- when resizing the hash's array, throw out all tombstones (b/c during resize we copy all entries to new table)
 16. Use a hash table to do **string interning**: create a collection of 'interned' or 'internal' strings. Strings in the collection are guaranteed to be textually distinct. When encountering a string, look for a matching string in the collection. If found - use the original one. Otherwise, add the string to the collection. (sidenote: this is how ruby symbols are implemented). This will speed up string equality, but also: method calls & instance fields, which are looked up by name at runtime (since Lox is dynamically typed), will be much faster
+17. Add support for global variables using a hash table, `globals`, on th vm.
+18. Add support for local variables using a stack. The stack offsets will be operands for the bytecode instructions that read & store local vars.
 
 ### Additional features
 ###### generated from Challenges in text

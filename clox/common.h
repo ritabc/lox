@@ -15,4 +15,6 @@
 // when defined, our VM will disassemble (debug) each instruction before it's run
 #define DEBUG_TRACE_EXECUTION
 
+#define UINT8_COUNT (UINT8_MAX + 1)
+
 #endif //CLOX_COMMON_H
