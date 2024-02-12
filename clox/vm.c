@@ -26,17 +26,19 @@ static void resetStack() {
 static void runtimeError(const char* format, ...) {
     va_list args;
     va_start(args, format);
-    vfprintf(stderr, format, args);
+    vfprintf(vm.ferr, format, args);
     va_end(args);
-    fputs("\n", stderr);
+    fputs("\n", vm.ferr);
 
     size_t instruction = vm.ip - vm.chunk->code - 1;
     int line = vm.chunk->lineStarts[instruction].lineNumber;
-    fprintf(stderr, "[line %d] in script\n", line);
+    fprintf(vm.ferr, "[line %d] in script\n", line);
     resetStack();
 }
 
-void initVM() {
+void initVM(FILE* fout, FILE* ferr) {
+    vm.fout = fout;
+    vm.ferr = ferr;
     resetStack();
     vm.objects = NULL;
     initTable(&vm.globals);
@@ -104,13 +106,13 @@ static InterpretResult run() {
 for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
     // show current contents of the stack
-    printf("          ");
+    fprintf(vm.fout, "          ");
     for (Value *slot = vm.stack; slot < vm.stackTop; slot++) {
-        printf("[ ");
-        printValue(*slot);
-        printf(" ]");
+        fprintf(vm.fout, "[ ");
+        printValue(*slot, vm.fout);
+        fprintf(vm.fout, " ]");
     }
-    printf("\n");
+    fprintf(vm.fout, "\n");
 
     // print disassembled instruction
     disassembleInstruction(vm.chunk, (int) (vm.ip - vm.chunk->code));
@@ -215,8 +217,8 @@ for (;;) {
             push(NUMBER_VAL(-AS_NUMBER(pop())));
             break;
         case OP_PRINT: {
-            printValue(pop());
-            printf("\n");
+            printValue(pop(), vm.fout);
+            fprintf(vm.fout, "\n");
             break;
         }
         case OP_RETURN: {

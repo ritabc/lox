@@ -12,6 +12,9 @@
 #define STACK_MAX 256
 
 typedef struct {
+    FILE* fout;
+    FILE* ferr;
+
     Chunk* chunk;
 
     uint8_t* ip; // instruction pointer or program counter. Points to instruction about to be executed
@@ -38,7 +41,7 @@ typedef enum {
 
 extern VM vm;
 
-void initVM();
+void initVM(FILE* fout, FILE* ferr);
 void freeVM();
 InterpretResult interpret(const char* source);
 void push(Value value);

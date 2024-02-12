@@ -23,4 +23,6 @@ add_executable(clox
         object.c
         object.h
         table.h
-        table.c)
+        table.c
+        utest.h
+        interpret_test.c)
