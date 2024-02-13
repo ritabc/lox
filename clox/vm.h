@@ -39,12 +39,12 @@ typedef enum {
     INTERPRET_RUNTIME_ERROR,
 } InterpretResult;
 
-extern VM vm;
+//extern VM vm;
 
-void initVM(FILE* fout, FILE* ferr);
-void freeVM();
-InterpretResult interpret(const char* source);
-void push(Value value);
-Value pop();
+void initVM(VM* vm, FILE* fout, FILE* ferr);
+void freeVM(VM* vm);
+InterpretResult interpret(VM* vm, const char* source);
+void push(VM* vm, Value value);
+Value pop(VM* vm);
 
 #endif //CLOX_VM_H

@@ -39,7 +39,7 @@ void printValue(Value value, FILE* fd) {
             break;
         case VAL_NIL: fprintf(fd, "nil"); break;
         case VAL_NUMBER: fprintf(fd, "%g", AS_NUMBER(value)); break;
-        case VAL_OBJ: printObject(value); break;
+        case VAL_OBJ: printObject(value, fd); break;
     }
 }
 

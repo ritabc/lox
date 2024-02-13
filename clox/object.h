@@ -9,6 +9,7 @@
 
 #include "common.h"
 #include "value.h"
+#include "vm.h"
 
 #define OBJ_TYPE(value)     (AS_OBJ(value)->type)
 
@@ -34,10 +35,10 @@ struct ObjString {
     uint32_t hash; // cache the hash so we don't have to recompute it - works because ObjStrings are immutable
 };
 
-ObjString* takeString(char* chars, int length);
-ObjString* copyString(const char* chars, int length);
+ObjString* takeString(VM* vm, char* chars, int length);
+ObjString* copyString(VM* vm, const char* chars, int length);
 
-void printObject(Value value);
+void printObject(Value value, FILE* fd);
 
 static inline bool isObjType(Value value, ObjType type) {
     return IS_OBJ(value) && AS_OBJ(value)->type == type;

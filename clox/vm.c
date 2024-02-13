@@ -17,48 +17,48 @@
 // and run multiple VMs in parallel.
 // But in the interest of keeping things small for the book,
 // it's a global variable
-VM vm;
+//VM vm;
 
-static void resetStack() {
-    vm.stackTop = vm.stack;
+static void resetStack(VM* vm) {
+    vm->stackTop = vm->stack;
 }
 
-static void runtimeError(const char* format, ...) {
+static void runtimeError(VM* vm, const char* format, ...) {
     va_list args;
     va_start(args, format);
-    vfprintf(vm.ferr, format, args);
+    vfprintf(vm->ferr, format, args);
     va_end(args);
-    fputs("\n", vm.ferr);
+    fputs("\n", vm->ferr);
 
-    size_t instruction = vm.ip - vm.chunk->code - 1;
-    int line = vm.chunk->lineStarts[instruction].lineNumber;
-    fprintf(vm.ferr, "[line %d] in script\n", line);
-    resetStack();
+    size_t instruction = vm->ip - vm->chunk->code - 1;
+    int line = vm->chunk->lineStarts[instruction].lineNumber;
+    fprintf(vm->ferr, "[line %d] in script\n", line);
+    resetStack(vm);
 }
 
-void initVM(FILE* fout, FILE* ferr) {
-    vm.fout = fout;
-    vm.ferr = ferr;
-    resetStack();
-    vm.objects = NULL;
-    initTable(&vm.globals);
-    initTable(&vm.strings);
+void initVM(VM* vm, FILE* fout, FILE* ferr) {
+    vm->fout = fout;
+    vm->ferr = ferr;
+    resetStack(vm);
+    vm->objects = NULL;
+    initTable(&vm->globals);
+    initTable(&vm->strings);
 }
 
-void freeVM() {
-    freeTable(&vm.globals);
-    freeTable(&vm.strings);
-    freeObjects();
+void freeVM(VM* vm) {
+    freeTable(&vm->globals);
+    freeTable(&vm->strings);
+    freeObjects(vm);
 }
 
-void push(Value value) {
-    *vm.stackTop = value;
-    vm.stackTop++;
+void push(VM* vm, Value value) {
+    *vm->stackTop = value;
+    vm->stackTop++;
 }
 
-Value pop() {
-    vm.stackTop--;
-    return *vm.stackTop;
+Value pop(VM* vm) {
+    vm->stackTop--;
+    return *vm->stackTop;
 }
 
 // returns a Value from the stack
@@ -66,17 +66,17 @@ Value pop() {
 // a distance of 0 => the top of the stack
 // a distance of 1 => 1 slot down
 // etc
-static Value peek(int distance) {
-    return vm.stackTop[-1 - distance];
+static Value peek(VM* vm, int distance) {
+    return vm->stackTop[-1 - distance];
 }
 
 static bool isFalsey(Value value) {
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
 
-static void concatenate() {
-    ObjString* b = AS_STRING(pop());
-    ObjString* a = AS_STRING(pop());
+static void concatenate(VM* vm) {
+    ObjString* b = AS_STRING(pop(vm));
+    ObjString* a = AS_STRING(pop(vm));
 
     int length = a->length + b->length;
     char* chars = ALLOCATE(char, length+1);
@@ -84,98 +84,98 @@ static void concatenate() {
     memcpy(chars+a->length, b->chars, b->length);
     chars[length] = '\0';
 
-    ObjString* result = takeString(chars, length);
-    push(OBJ_VAL(result));
+    ObjString* result = takeString(vm, chars, length);
+    push(vm, OBJ_VAL(result));
 }
 
-static InterpretResult run() {
-#define READ_BYTE() (*vm.ip++)
-#define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+static InterpretResult run(VM* vm) {
+#define READ_BYTE() (*vm->ip++)
+#define READ_CONSTANT() (vm->chunk->constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define BINARY_OP(valueType, op)                               \
     do {                                                       \
-        if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) {      \
-            runtimeError("Operands must be numbers.");         \
+        if (!IS_NUMBER(peek(vm, 0)) || !IS_NUMBER(peek(vm, 1))) {      \
+            runtimeError(vm, "Operands must be numbers.");         \
             return INTERPRET_RUNTIME_ERROR;                    \
         }                                                      \
-        double b = AS_NUMBER(pop());                           \
-        double a = AS_NUMBER(pop());                           \
-        push(valueType(a op b));                               \
+        double b = AS_NUMBER(pop(vm));                           \
+        double a = AS_NUMBER(pop(vm));                           \
+        push(vm, valueType(a op b));                               \
     } while (false) // in a do...while loop to capture all of it and for semicolon wrangling reasons
 
 for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
     // show current contents of the stack
-    fprintf(vm.fout, "          ");
-    for (Value *slot = vm.stack; slot < vm.stackTop; slot++) {
-        fprintf(vm.fout, "[ ");
-        printValue(*slot, vm.fout);
-        fprintf(vm.fout, " ]");
+    fprintf(vm->fout, "          ");
+    for (Value *slot = vm->stack; slot < vm->stackTop; slot++) {
+        fprintf(vm->fout, "[ ");
+        printValue(*slot, vm->fout);
+        fprintf(vm->fout, " ]");
     }
-    fprintf(vm.fout, "\n");
+    fprintf(vm->fout, "\n");
 
     // print disassembled instruction
-    disassembleInstruction(vm.chunk, (int) (vm.ip - vm.chunk->code));
+    disassembleInstruction(vm->chunk, (int) (vm->ip - vm->chunk->code));
 #endif
     uint8_t instruction;
     switch (instruction = READ_BYTE()) {
         case OP_CONSTANT: {
             Value constant = READ_CONSTANT();
-            push(constant);
+            push(vm, constant);
             break;
         }
         case OP_NIL:
-            push(NIL_VAL);
+            push(vm, NIL_VAL);
             break;
         case OP_TRUE:
-            push(BOOL_VAL(true));
+            push(vm, BOOL_VAL(true));
             break;
         case OP_FALSE:
-            push(BOOL_VAL(false));
+            push(vm, BOOL_VAL(false));
             break;
-        case OP_POP: pop(); break;
+        case OP_POP: pop(vm); break;
         case OP_GET_LOCAL: {
             uint8_t slot = READ_BYTE();
-            push(vm.stack[slot]);
+            push(vm, vm->stack[slot]);
             break;
         }
         case OP_SET_LOCAL: {
             // Takes the assigned value from the top of the stack & stores it in the stack slot corresponding to the local variable
             // Does not pop the value since assignment is an expression. Expressions produce a value, which should be at the top of the stack after
             uint8_t slot = READ_BYTE();
-            vm.stack[slot] = peek(0);
+            vm->stack[slot] = peek(vm, 0);
             break;
         }
         case OP_GET_GLOBAL: {
             ObjString* name = READ_STRING();
             Value value;
-            if (!tableGet(&vm.globals, name, &value)) {
-                runtimeError("Undefinied variable '%s'.", name->chars);
+            if (!tableGet(&vm->globals, name, &value)) {
+                runtimeError(vm,"Undefinied variable '%s'.", name->chars);
                 return INTERPRET_RUNTIME_ERROR;
             }
-            push(value);
+            push(vm, value);
             break;
         }
         case OP_DEFINE_GLOBAL: {
             ObjString* name = READ_STRING();
-            tableSet(&vm.globals, name, peek(0));
-            pop();
+            tableSet(&vm->globals, name, peek(vm, 0));
+            pop(vm);
             break;
         }
         case OP_SET_GLOBAL: {
             ObjString *name = READ_STRING();
-            if (tableSet(&vm.globals, name, peek(0))) {
+            if (tableSet(&vm->globals, name, peek(vm, 0))) {
                 // it's a new key (hasn't been defined yet - it's a runtime error to try & assign to it)
-                tableDelete(&vm.globals, name);
-                runtimeError("Undefined variable '%s'.", name->chars);
+                tableDelete(&vm->globals, name);
+                runtimeError(vm,"Undefined variable '%s'.", name->chars);
                 return INTERPRET_RUNTIME_ERROR;
             }
             break;
         }
         case OP_EQUAL: {
-            Value b = pop();
-            Value a = pop();
-            push(BOOL_VAL(valuesEqual(a, b)));
+            Value b = pop(vm);
+            Value a = pop(vm);
+            push(vm, BOOL_VAL(valuesEqual(a, b)));
             break;
         }
         case OP_GREATER:
@@ -185,14 +185,14 @@ for (;;) {
             BINARY_OP(BOOL_VAL, <);
             break;
         case OP_ADD: {
-            if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
-                concatenate();
-            } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
-                double b = AS_NUMBER(pop());
-                double a = AS_NUMBER(pop());
-                push(NUMBER_VAL(a + b));
+            if (IS_STRING(peek(vm, 0)) && IS_STRING(peek(vm, 1))) {
+                concatenate(vm);
+            } else if (IS_NUMBER(peek(vm, 0)) && IS_NUMBER(peek(vm, 1))) {
+                double b = AS_NUMBER(pop(vm));
+                double a = AS_NUMBER(pop(vm));
+                push(vm, NUMBER_VAL(a + b));
             } else {
-                runtimeError("Operands must be two numbers or two strings.");
+                runtimeError(vm, "Operands must be two numbers or two strings.");
                 return INTERPRET_RUNTIME_ERROR;
             }
             break;
@@ -207,18 +207,18 @@ for (;;) {
             BINARY_OP(NUMBER_VAL, /);
             break;
         case OP_NOT:
-            push(BOOL_VAL(isFalsey(pop())));
+            push(vm, BOOL_VAL(isFalsey(pop(vm))));
             break;
         case OP_NEGATE:
-            if (IS_NUMBER(peek(0))) {
-                runtimeError("Operand must be a number.");
+            if (IS_NUMBER(peek(vm, 0))) {
+                runtimeError(vm, "Operand must be a number.");
                 return INTERPRET_RUNTIME_ERROR;
             }
-            push(NUMBER_VAL(-AS_NUMBER(pop())));
+            push(vm, NUMBER_VAL(-AS_NUMBER(pop(vm))));
             break;
         case OP_PRINT: {
-            printValue(pop(), vm.fout);
-            fprintf(vm.fout, "\n");
+            printValue(pop(vm), vm->fout);
+            fprintf(vm->fout, "\n");
             break;
         }
         case OP_RETURN: {
@@ -233,19 +233,19 @@ for (;;) {
 #undef BINARY_OP
 }
 
-InterpretResult interpret(const char* source) {
+InterpretResult interpret(VM* vm, const char* source) {
     Chunk chunk;
     initChunk(&chunk);
 
-    if (!compile(source, &chunk)) {
+    if (!compile(vm, source, &chunk)) {
         freeChunk(&chunk);
         return INTERPRET_COMPILE_ERROR;
     }
 
-    vm.chunk = &chunk;
-    vm.ip = vm.chunk->code;
+    vm->chunk = &chunk;
+    vm->ip = vm->chunk->code;
 
-    InterpretResult result = run();
+    InterpretResult result = run(vm);
 
     freeChunk(&chunk);
     return result;

@@ -73,6 +73,8 @@ typedef struct {
 
     // the number of blocks surrounding the current bit of code we're compiling
     int scopeDepth;
+
+    VM* vm;
 } Compiler;
 
 Parser parser;
@@ -167,9 +169,10 @@ static void emitConstant(Value value) {
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
-static void initCompiler(Compiler* compiler) {
+static void initCompiler(Compiler* compiler, VM* vm) {
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
+    compiler->vm = vm;
     current = compiler;
 }
 
@@ -203,7 +206,7 @@ static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
 
 static uint8_t identifierConstant(Token* name) {
-    return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
+    return makeConstant(OBJ_VAL(copyString(current->vm, name->start, name->length)));
 }
 
 static bool identifiersEqual(Token* a, Token* b) {
@@ -310,7 +313,7 @@ static void number(bool canAssign) {
 
 // +1, -2 trims the quotation marks
 static void string(bool canAssign) {
-    emitConstant(OBJ_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
+    emitConstant(OBJ_VAL(copyString(current->vm, parser.previous.start + 1, parser.previous.length - 2)));
 }
 
 static void namedVariable(Token name, bool canAssign) {
@@ -538,11 +541,11 @@ static void statement() {
     }
 }
 
-bool compile(const char*source, Chunk* chunk) {
+bool compile(VM* vm, const char*source, Chunk* chunk) {
     initScanner(source);
 
     Compiler compiler;
-    initCompiler(&compiler);
+    initCompiler(&compiler, vm);
 
     compilingChunk = chunk;
     parser.hadError = false;
