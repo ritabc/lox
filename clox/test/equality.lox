@@ -1,1 +1,1 @@
-print true == true;
+print true == true; // expect: true

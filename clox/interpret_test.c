@@ -45,16 +45,83 @@ struct InterpretTest {
     VM* vm;
     MemBuf out;
     MemBuf err;
-} ;
+};
 
 // Use globals so we can assign from main, use in tests.
 // TODO: using a setup function, fixtures is probably better? How to do?
+// One option: 1/2 & 1/2: keep global variables, but init and free in setup / teardown // TODO
 VM vm;
 MemBuf out, err;
 
+typedef enum {
+    EXP_OUTPUT,
+    EXP_ERROR,
+    EXP_LINE,
+    EXP_RUNTIME_ERROR,
+    EXP_SYNTAX_ERROR,
+    EXP_STACK_TRACE_ERROR
+} ExpectedType;
+
+typedef struct {
+    ExpectedType type;
+    int line;
+    Value val;
+} Expected;
+
+typedef struct {
+    int capacity;
+    int count;
+    Expected* expected;
+} ExpectedArray;
+
+void initExpectedArray(ExpectedArray* array) {
+    array->expected = NULL;
+    array->capacity = 0;
+    array->count = 0;
+}
+
+static char* parseFileForTesting(const char* path, ExpectedArray* expecteds) {
+    FILE* file = fopen(path, "rb");
+
+    if (file == NULL) {
+        fprintf(stderr, "Could not open file \"%s\".\n", path);
+        exit(74);
+    }
+
+    // get size of file, use it to allocate sourceBuffer
+    fseek(file, 0L, SEEK_END);
+    size_t fileSize = ftell(file);
+    rewind(file);
+    char* sourceBuffer = (char*)malloc(fileSize + 1);
+    if (sourceBuffer == NULL) {
+        fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
+        exit(74);
+    }
+
+    char* line = NULL;
+    size_t lineCapp = 0;
+    ssize_t read; // will be -1 at eof, or at error
+    int lineNumber = 1;
+    size_t sourceBufferSize = 0;
+    sourceBuffer[0] = '\0';
+
+    while ((read = getline(&line, &lineCapp, file)) != -1) {
+//        gatherExpected(line, expecteds, lineNumber++);
+        // strlcat takes null-terminated baseString, null-term toAppendString, and total size of new string (base size + toAppend size + 1 for null term)
+        sourceBufferSize = strlcat(sourceBuffer, line, read + sourceBufferSize + 1);
+    }
+
+    fclose(file);
+    free(line);
+
+    return sourceBuffer;
+}
+
 UTEST(InterpretTest, testHardCodedFile) {
-    // Test
-    char* source = "print true == true; // expect: ";
+    ExpectedArray expecteds;
+    initExpectedArray(&expecteds);
+    char* source = parseFileForTesting("./test/equality.lox", &expecteds);
+
     interpret(&vm, source);
     fflush(out.fptr);
     fflush(err.fptr);
@@ -65,7 +132,7 @@ UTEST(InterpretTest, testHardCodedFile) {
 UTEST_STATE();
 
 int main(int argc, const char* argv[]) {
-    // Setup
+    // Overall Setup (setup and teardown methods of utest run after/before each (assuming they follow googletest's semantics)
     initMemBuf(&out);
     initMemBuf(&err);
     out.fptr = open_memstream(&out.bufp, &out.size);

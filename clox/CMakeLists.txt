@@ -25,4 +25,6 @@ add_executable(clox
         table.h
         table.c
         utest.h
+        interpret_test.c
         interpret_test.c)
+add_executable(integrationTests interpret_test.c)
