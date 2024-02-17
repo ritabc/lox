@@ -74,8 +74,11 @@ A separate metaclass exists for each class. It holds any static (class) methods 
 16. Use a hash table to do **string interning**: create a collection of 'interned' or 'internal' strings. Strings in the collection are guaranteed to be textually distinct. When encountering a string, look for a matching string in the collection. If found - use the original one. Otherwise, add the string to the collection. (sidenote: this is how ruby symbols are implemented). This will speed up string equality, but also: method calls & instance fields, which are looked up by name at runtime (since Lox is dynamically typed), will be much faster
 17. Add support for global variables using a hash table, `globals`, on th vm.
 18. Add support for local variables using a stack. The stack offsets will be operands for the bytecode instructions that read & store local vars.
+19. Control flow for ifs, elses, and, or, and while statements
 
 ### Additional features
 ###### generated from Challenges in text
 #### Shown with link to another branch if that was deemed necessary
 1. Instead of storing line numbers in an array the length of codes, where every element is the line number that code is on, use a run-length encoding scheme. 
+1. Add testing framework (interpret_test.c)
+2. 
