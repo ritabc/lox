@@ -1,33 +1,15 @@
 //
 // Created by Rita Bennett-Chew on 2/11/24.
 //
-/* TODO: run integration test with source .lox code hard-coded here:
-    - need to create a fd to which the printed output will be sent, after interpreting lox print statements.
-    - additionally, need to create a fd to which lox errors will be sent
-    use open_memstream
+/* run integration test with source .lox code hard-coded here:
  */
 
-
-// QUestion: is there a new outbuf for every test run?
-// QUESTIon: Do compiling all in teardown? Does that make sense?
-// I could, in each test, run through the code and do the 'first' pass: add to expecteds array (see OneNote notes)
-// Would it make sense to do all compiling in teardown? Does that run once per test or once per suite (aka once for this entire file) or once per input file?
-// let's assume once for this entire file
-// what would a workflow look like?
-// need to keep line numbers seprate for each file in nystrom's test dir
-// because of, for ie: https://github.com/munificent/craftinginterpreters/blob/master/test/unexpected_character.lox
-// So, doing compilation/interpreting all in teardown doesn't make the most sense (?)
-//// humor self - what if it did?
-//// it would mean storing the files in a fileData array, each element of which would have {sourceLines array, expectedLines array} struct. This would be created using a first pass parsing to get expectedLines. ExpectedLines would also have to track the src line it was generated from. It would mean a lot of memory, and we'd have to open & close each file once. So each test would open (&close) the .lox file. It would add to sourceLines dynamicArray, expectedLines dynamicArray. Then, in teardown we'd have a giant list of FileData, and we'd go through each file, each line; interpret. If there's an expectedLine at that line number, assertEquals.
-// That seems like a lot of mental-model overhead/complexity.
-// Alternatively: each test opens (& closes each file). It parses the first pass line-by-line, like repl in main(), but doesn't interpret. If it encounters an expect comment, store that in an ExpectLine struct {lineNo, valueString, outputType (runtimeError, value, errorAt,etc)}. Then add that ExpectLine to an expectedLines dynamic array - one exists per file. (Don't forget to free it). (or maybe, a regular array with same # of lines as source file. Store nil if no expectValue)
-// Then, pass 2: interpret line-by-line. For lines that produce no output to vm->fout nor to vm->ferr, assert there is no ExpectLine value for that line No. If output is produced, assert that it matches.
-// I think this is a better way to go
-
 #include <stdio.h>
+#include <dirent.h>
 
 #include "utest.h"
 #include "vm.h"
+#include "memory.h"
 
 typedef struct {
     char* bufp;
@@ -41,18 +23,6 @@ void initMemBuf(MemBuf* memBuf) {
     memBuf->fptr = NULL;
 }
 
-struct InterpretTest {
-    VM* vm;
-    MemBuf out;
-    MemBuf err;
-};
-
-// Use globals so we can assign from main, use in tests.
-// TODO: using a setup function, fixtures is probably better? How to do?
-// One option: 1/2 & 1/2: keep global variables, but init and free in setup / teardown // TODO
-VM vm;
-MemBuf out, err;
-
 typedef enum {
     EXP_OUTPUT,
     EXP_ERROR,
@@ -64,23 +34,147 @@ typedef enum {
 
 typedef struct {
     ExpectedType type;
-    int line;
-    Value val;
-} Expected;
+    char* output;
+} ExpectedLine;
 
+// An ExpectedArray is a dynamic array of expected lines. One is generated for each file.
 typedef struct {
-    int capacity;
-    int count;
-    Expected* expected;
+    uint32_t capacity;
+    uint32_t count;
+    ExpectedLine* outLines;
 } ExpectedArray;
 
-void initExpectedArray(ExpectedArray* array) {
-    array->expected = NULL;
-    array->capacity = 0;
-    array->count = 0;
+// Use globals so we can assign from main, use in tests.
+VM vm;
+MemBuf outActual, errActual;
+MemBuf outExpected, errExpected;
+int numTests = 0;
+
+// data for each file
+struct FixtureData {
+    ExpectedArray* expectedsForCurrFile;
+};
+
+// dynamically add an ExpectedLine to ExpectedArray->outLines
+void addToExpecteds(ExpectedArray* exps, ExpectedLine* expLine) {
+    if (exps->capacity < exps->count+1) {
+        int oldCapacity = exps->capacity;
+        exps->capacity = GROW_CAPACITY(oldCapacity);
+        exps->outLines = GROW_ARRAY(ExpectedLine, exps->outLines, oldCapacity, exps->capacity);
+    }
+    exps->outLines[exps->count].output = expLine->output;
+    exps->outLines[exps->count++].type = expLine->type;
 }
 
-static char* parseFileForTesting(const char* path, ExpectedArray* expecteds) {
+// Create a new ExpectedLine from a type, comment[start..len]
+ExpectedLine* newExpectedLine(ExpectedType type, char* comment, uint32_t startAt, uint32_t finalOutputLen) {
+    ExpectedLine* ret = malloc(sizeof(ExpectedLine*));
+    ret->type = type;
+    // ret->output is a char*, which will be freed in getExpectedStrings
+    ret->output = malloc(sizeof(char*) * (finalOutputLen-startAt+1));
+    strlcpy(ret->output, &comment[startAt], finalOutputLen+1);
+    return ret;
+}
+
+// Parse sourceLine and add to exps if we encounter an Expect line like a value or error.
+// ExpectedArray is dynamic: see chunk.c implementation of chunk->code for how to write to it
+static void getExpectedIfAnyFromSourceLine(char* sourceLine, ExpectedArray* exps) {
+    // get pos of a comment
+    // if there is no comment, return
+    // if the comment matches expect value: do stuff
+    // if the comment matches expect error: do stuff
+    // if the comment matches ...
+    char* commentPrefix = "// ";
+    int commentPrefixLen = strlen(commentPrefix);
+    char* comment = strcasestr(sourceLine, commentPrefix);
+    if (comment == NULL) {
+        // no output (expect) comment found
+        return;
+    }
+
+    // Eg: "expect runtime error: msg" --> want prefix + msg (entire comment)
+    char* expectRuntimeErrorPrefix = "expect runtime error: ";
+    uint32_t expectPrefixLen = strlen(expectRuntimeErrorPrefix);
+    char* expectRuntimeError = strcasestr(comment, expectRuntimeErrorPrefix);
+    if (expectRuntimeError != NULL) {
+        ExpectedLine* expected = newExpectedLine(EXP_RUNTIME_ERROR, comment, 0, strlen(comment));
+        addToExpecteds(exps, expected);
+        return;
+    }
+
+    // Eg: "[line 3] Error at '{': Expect expression." --> want prefix and msg (entire comment)
+    char* expectLineErrorAtPrefix = "[line ";
+    expectPrefixLen = strlen(expectLineErrorAtPrefix);
+    char* expectLineErrorAt = strcasestr(comment, expectLineErrorAtPrefix);
+    if (expectLineErrorAt != NULL) {
+        ExpectedLine* expected = newExpectedLine(EXP_LINE, comment, 0, strlen(comment));
+        addToExpecteds(exps, expected);
+        return;
+    }
+
+    // Eg: "Error at 'return': msg" --> want prefix & msg (entire comment)
+    char* expectErrorAtPrefix = "Error at ";
+    expectPrefixLen = strlen(expectErrorAtPrefix);
+    char* expectErrorAt = strcasestr(comment, expectErrorAtPrefix);
+    if (expectErrorAt != NULL) {
+        ExpectedLine* expected = newExpectedLine(EXP_ERROR, comment, 0, strlen(comment));
+        addToExpecteds(exps, expected);
+        return;
+    }
+
+    // Eg: "expect 1" --> just want value
+    char* expectPrefix = "expect: ";
+    expectPrefixLen = strlen(expectPrefix);
+    char* expectValue = strcasestr(comment, expectPrefix);
+    if (expectValue != NULL) {
+        ExpectedLine* expected = newExpectedLine(EXP_OUTPUT, comment, commentPrefixLen+expectPrefixLen, strlen(comment)-commentPrefixLen-expectPrefixLen);
+        addToExpecteds(exps, expected);
+        return;
+    }
+}
+
+// A recursive function that gathers names of all .lox test files within dirpath, adds them to testFiles
+static void getTestFilepaths(char* dirpath, char** loxFilePaths) {
+    DIR* dirp;
+    struct dirent* dir;
+    dirp = opendir(dirpath);
+    if (dirp == NULL) {
+        fprintf(stderr, "Could not open directory \"%s\".\n", dirpath);
+    }
+    while ((dir = readdir(dirp)) != NULL) {
+        int originalDirpathLen = strlen(dirpath);
+
+        char* dot = strrchr(dir->d_name, '.'); // strrchr will get the rightmost '.'
+        if (dot && strcmp(dot, ".lox") == 0) {
+            // Add .lox files to loxFiles
+            // plus one for separating slash, one for null term
+            char testFile[originalDirpathLen + 2];
+            // make copy of dirpath b/c we want to use it in its unaltered state
+            // for other .lox file iterations of this loop & recursive searching.
+            strlcpy(testFile, dirpath, originalDirpathLen + 1);
+            testFile[originalDirpathLen] = '/';
+            uint32_t testFileLen = strlcat(testFile, dir->d_name, originalDirpathLen + strlen(dir->d_name) + 2);
+            char* loxFilePathPtr = malloc(testFileLen*sizeof(char*));
+            strlcpy(loxFilePathPtr, testFile, testFileLen + 1);
+            loxFilePaths[numTests++] = loxFilePathPtr;
+        } else if (dir->d_type == DT_DIR) {
+            // recursively search any directories found here
+            if (strcmp(dir->d_name, ".") == 0 || strcmp(dir->d_name, "..") == 0 || strcmp(dir->d_name, ".DS_Store") == 0) {
+                continue;
+            }
+            // concat new dir name to original dirpath
+            // but first make copy of dirpath so original is unaltered
+            char newDirpath[originalDirpathLen + 2];
+            strlcpy(newDirpath, dirpath, originalDirpathLen+1);
+            newDirpath[originalDirpathLen] = '/';
+            strlcat(newDirpath, dir->d_name, originalDirpathLen + strlen(dir->d_name) + 2);
+            getTestFilepaths(newDirpath, loxFilePaths);
+        }
+    }
+}
+
+// Reads file line by line. For each line, gather any expected values/errors, add to source buffer, which will be returned.
+static char* parseFileForTesting(const char* path, ExpectedArray* expectedsForThisFile) {
     FILE* file = fopen(path, "rb");
 
     if (file == NULL) {
@@ -101,12 +195,11 @@ static char* parseFileForTesting(const char* path, ExpectedArray* expecteds) {
     char* line = NULL;
     size_t lineCapp = 0;
     ssize_t read; // will be -1 at eof, or at error
-    int lineNumber = 1;
     size_t sourceBufferSize = 0;
     sourceBuffer[0] = '\0';
 
     while ((read = getline(&line, &lineCapp, file)) != -1) {
-//        gatherExpected(line, expecteds, lineNumber++);
+        getExpectedIfAnyFromSourceLine(line, expectedsForThisFile);
         // strlcat takes null-terminated baseString, null-term toAppendString, and total size of new string (base size + toAppend size + 1 for null term)
         sourceBufferSize = strlcat(sourceBuffer, line, read + sourceBufferSize + 1);
     }
@@ -117,34 +210,106 @@ static char* parseFileForTesting(const char* path, ExpectedArray* expecteds) {
     return sourceBuffer;
 }
 
-UTEST(InterpretTest, testHardCodedFile) {
-    ExpectedArray expecteds;
-    initExpectedArray(&expecteds);
-    char* source = parseFileForTesting("./test/equality.lox", &expecteds);
-
-    interpret(&vm, source);
-    fflush(out.fptr);
-    fflush(err.fptr);
-    EXPECT_STREQ("true\n", out.bufp);
-    EXPECT_STREQ("", err.bufp);
+static void getExpectedStrings(ExpectedArray* exps, MemBuf outExp, MemBuf errExp) {
+    // convert exps struct into expected out & expected err strings
+    // from exps, compose char* for expectedOutput, char* for expectedErrs
+    // loop over all exps, which is for this current file.
+    // switch on type of expLine
+    uint32_t outLen = 0;
+    uint32_t errLen = 0;
+    for (int i = 0; i < exps->count; i++) {
+        switch (exps->outLines[i].type) {
+            case EXP_OUTPUT:
+                fprintf(outExp.fptr, "%s", exps->outLines[i].output);
+                free(exps->outLines[i].output);
+                break;
+            case EXP_ERROR:
+            case EXP_LINE:
+            case EXP_RUNTIME_ERROR:
+            case EXP_SYNTAX_ERROR:
+            case EXP_STACK_TRACE_ERROR:
+                fprintf(errExp.fptr, "%s", exps->outLines[i].output);
+                free(exps->outLines[i].output);
+                free(&exps->outLines[i]);
+                break;
+        }
+    }
 }
+
+static void freeTestPaths(char** testPaths, int count) {
+    for (int i = 0; i < count; i++) {
+        free(testPaths[i]);
+    }
+}
+
+void initFileExpecteds(ExpectedArray* exps) {
+    // A dynamically growing array since we have no way of knowing how many expectedValues we'll have
+    exps->capacity = 0;
+    exps->count = 0;
+    exps->outLines = NULL;
+}
+
+// Another global, the length of which is number of test files
+char* testPaths[2];
+ExpectedArray exps;
+
+UTEST_I_SETUP(FixtureData) {
+    initMemBuf(&outActual);
+    initMemBuf(&errActual);
+    initMemBuf(&outExpected);
+    initMemBuf(&errExpected);
+    outActual.fptr = open_memstream(&outActual.bufp, &outActual.size);
+    errActual.fptr = open_memstream(&errActual.bufp, &errActual.size);
+    outExpected.fptr = open_memstream(&outExpected.bufp, &outExpected.size);
+    errExpected.fptr = open_memstream(&errExpected.bufp, &errExpected.size);
+
+    initVM(&vm, outActual.fptr, errActual.fptr);
+
+    initFileExpecteds(&exps); // a struct that holds cap of, count of, and expectedArrays;
+    utest_fixture->expectedsForCurrFile = &exps;
+}
+
+UTEST_I_TEARDOWN(FixtureData) {
+    char* source = parseFileForTesting(testPaths[utest_index], utest_fixture->expectedsForCurrFile);
+    interpret(&vm, source);
+
+    getExpectedStrings(utest_fixture->expectedsForCurrFile, outExpected, errExpected);
+
+    fflush(outActual.fptr);
+    fflush(errActual.fptr);
+    fflush(outExpected.fptr);
+    fflush(errExpected.fptr);
+    EXPECT_STREQ(outExpected.bufp, outActual.bufp);
+    EXPECT_STREQ(errExpected.bufp, errActual.bufp);
+
+    fclose(outActual.fptr);
+    fclose(errActual.fptr);
+    fclose(outExpected.fptr);
+    fclose(errExpected.fptr);
+    free(outActual.bufp);
+    free(errActual.bufp);
+    free(outExpected.bufp);
+    free(errExpected.bufp);
+}
+
+UTEST_I(FixtureData, loxFileData, 2) {}
 
 UTEST_STATE();
 
 int main(int argc, const char* argv[]) {
-    // Overall Setup (setup and teardown methods of utest run after/before each (assuming they follow googletest's semantics)
-    initMemBuf(&out);
-    initMemBuf(&err);
-    out.fptr = open_memstream(&out.bufp, &out.size);
-    err.fptr = open_memstream(&err.bufp, &err.size);
+    // TODO: Refactor so that MemBufs are used instead of ExpectedArray?
 
-    initVM(&vm, out.fptr, err.fptr);
+//    // 1. Setup before all tests
+    *testPaths = malloc(sizeof(char*) * 2);
 
+    // If running/debugging from clion:
+    getTestFilepaths("../test", testPaths);
+    // If running with leaks: ($ leaks --atExit -- /Users/rita/Documents/Projects-Code/teachYourselfCSdotcom/08_languages/lox/clox/cmake-build-leaks/integrationTests)
+//    getTestFilepaths("./test", testPaths);
+
+    // 2. Run all tests
     utest_main(argc, argv);
 
-    // Teardown
-    fclose(out.fptr);
-    fclose(err.fptr);
-    free(out.bufp);
-    free(err.bufp);
+    // 3. Teardown after all tests
+    freeTestPaths(testPaths, numTests);
 }

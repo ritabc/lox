@@ -23,8 +23,27 @@ add_executable(clox
         object.c
         object.h
         table.h
-        table.c
-        utest.h
+        table.c)
+
+add_executable(integrationTests
         interpret_test.c
-        interpret_test.c)
-add_executable(integrationTests interpret_test.c)
+        common.h
+        chunk.h
+        chunk.c
+        memory.h
+        memory.c
+        debug.h
+        debug.c
+        value.h
+        value.c
+        vm.h
+        vm.c
+        compiler.h
+        compiler.c
+        scanner.h
+        scanner.c
+        object.c
+        object.h
+        table.h
+        table.c)
+
