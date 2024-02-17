@@ -75,6 +75,7 @@ A separate metaclass exists for each class. It holds any static (class) methods 
 17. Add support for global variables using a hash table, `globals`, on th vm.
 18. Add support for local variables using a stack. The stack offsets will be operands for the bytecode instructions that read & store local vars.
 19. Control flow for ifs, elses, and, or, and while statements
+20. Add for statements, again by desugaring the for to a while with some extra stuff before it & at the end of the body.
 
 ### Additional features
 ###### generated from Challenges in text
