@@ -11,6 +11,8 @@
 #include "vm.h"
 #include "memory.h"
 
+#define TEST_FILE_COUNTS 3
+
 typedef struct {
     char* bufp;
     size_t size;
@@ -250,7 +252,7 @@ void initFileExpecteds(ExpectedArray* exps) {
 }
 
 // Another global, the length of which is number of test files
-char* testPaths[2];
+char* testPaths[TEST_FILE_COUNTS];
 ExpectedArray exps;
 
 UTEST_I_SETUP(FixtureData) {
@@ -267,6 +269,7 @@ UTEST_I_SETUP(FixtureData) {
 
     initFileExpecteds(&exps); // a struct that holds cap of, count of, and expectedArrays;
     utest_fixture->expectedsForCurrFile = &exps;
+    printf("Test: %s (%i)\n", testPaths[utest_index], (u_int32_t) utest_index);
 }
 
 UTEST_I_TEARDOWN(FixtureData) {
@@ -292,7 +295,8 @@ UTEST_I_TEARDOWN(FixtureData) {
     free(errExpected.bufp);
 }
 
-UTEST_I(FixtureData, loxFileData, 2) {}
+UTEST_I(FixtureData, LoxTest, TEST_FILE_COUNTS) {}
+
 
 UTEST_STATE();
 
@@ -300,7 +304,7 @@ int main(int argc, const char* argv[]) {
     // TODO: Refactor so that MemBufs are used instead of ExpectedArray?
 
 //    // 1. Setup before all tests
-    *testPaths = malloc(sizeof(char*) * 2);
+    *testPaths = malloc(sizeof(char*) * TEST_FILE_COUNTS);
 
     // If running/debugging from clion:
     getTestFilepaths("../test", testPaths);
