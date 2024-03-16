@@ -25,17 +25,30 @@ static void resetStack(VM* vm) {
 }
 
 static void runtimeError(VM* vm, const char* format, ...) {
+
+    // First, print the error msg itself
     va_list args;
     va_start(args, format);
     vfprintf(vm->ferr, format, args);
     va_end(args);
     fputs("\n", vm->ferr);
 
-//    CallFrame* frame = &vm->frames[vm->frameCount - 1];
-//    size_t instruction = frame->ip - frame->function->chunk.code - 1;
-//    int line = frame->function->chunk.lineStarts[instruction].lineNumber;
-//
-//    fprintf(vm->ferr, "[line %d] in script\n", line);
+    // Then, show the entire stack when a runtime error is generated
+    // walk the call stack from the top aka the most recently called func
+    // to the bottom (the top-level code)
+    // for each, find the line number that corresponds to the current ip inside that frame's function
+    for (int i = vm->frameCount - 1; i >= 0; i--) {
+        CallFrame* frame = &vm->frames[i];
+        ObjFunction* function = frame->function;
+        size_t instruction = frame->ip - function->chunk.code - 1;
+        fprintf(vm->ferr, "[line %d] in ", function->chunk.lines[instruction]);
+        if (function->name == NULL) {
+            fprintf(vm->ferr, "script\n");
+        } else {
+            fprintf(vm->ferr, "%s()\n", function->name->chars);
+        }
+    }
+
     resetStack(vm);
 }
 
@@ -71,6 +84,44 @@ Value pop(VM* vm) {
 // etc
 static Value peek(VM* vm, int distance) {
     return vm->stackTop[-1 - distance];
+}
+
+// Initializes the next CallFrame on the stack
+// stores a pointer to the function being called
+// points the frame's ip to the beginning of the functio's bytecode
+// sets up slots pointer to give the frame its window into the stack,
+// ensuring the arguments on the stack already line up with the function's parameters
+static bool call(VM* vm, ObjFunction* function, int argCount) {
+    if (argCount != function->arity) {
+        runtimeError(vm, "Expected %d arguments but got %d.", function->arity, argCount);
+        return false;
+    }
+
+    // error on a too-deep call chain
+    if (vm->frameCount == FRAMES_MAX) {
+        runtimeError(vm, "Stack overflow.");
+        return false;
+    }
+
+    CallFrame* frame = &vm->frames[vm->frameCount++];
+    frame->function = function;
+    frame->ip = function->chunk.code;
+    frame->slots = vm->stackTop - argCount - 1;
+    return true;
+}
+
+static bool callValue(VM* vm, Value callee, int argCount) {
+    if (IS_OBJ(callee)) {
+        switch (OBJ_TYPE(callee)) {
+            case OBJ_FUNCTION:
+                return call(vm, AS_FUNCTION(callee), argCount);
+            default:
+                break;
+        }
+    }
+    // prevent user from calling non funcs, non classes like: true();
+    runtimeError(vm, "Can only call functions and classes.");
+    return false;
 }
 
 static bool isFalsey(Value value) {
@@ -242,9 +293,35 @@ for (;;) {
             frame->ip -= offset;
             break;
         }
+        case OP_CALL: {
+            int argCount = READ_BYTE();
+            if (!callValue(vm, peek(vm, argCount), argCount)) {
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            frame = &vm->frames[vm->frameCount - 1];
+            break;
+        }
         case OP_RETURN: {
-            // Exit interpreter
-            return INTERPRET_OK;
+
+            // When a function returns a value, that value will be on top of the stack.
+            // Since we're about to discard the called function's entire stack window, pop the return value off & save it
+            // Then, Discard the Callframe for the returning function
+            // If that was the last CallFrame, we're done with the entire program
+            // Otherwise, discard all the slots the callee was using for its params & local variables
+            // Push the return value at the new location
+            // Finally, update the run() function's cached pointer to the current frame.
+
+            Value result = pop(vm);
+            vm->frameCount--;
+            if (vm->frameCount == 0) {
+                pop(vm);
+                return INTERPRET_OK;
+            }
+
+            vm->stackTop = frame->slots;
+            push(vm, result);
+            frame = &vm->frames[vm->frameCount - 1];
+            break;
         }
     }
 }
@@ -271,6 +348,7 @@ InterpretResult interpret(VM* vm, const char* source) {
     if (function == NULL) return INTERPRET_COMPILE_ERROR;
 
     push(vm, OBJ_VAL(function));
+    call(vm, function, 0); // set up first frame for executing top-level code
     CallFrame* frame = &vm->frames[vm->frameCount++];
     frame->function = function;
     frame->ip = function->chunk.code;
