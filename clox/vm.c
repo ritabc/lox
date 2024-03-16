@@ -31,11 +31,11 @@ static void runtimeError(VM* vm, const char* format, ...) {
     va_end(args);
     fputs("\n", vm->ferr);
 
-    CallFrame* frame = &vm->frames[vm->frameCount - 1];
-    size_t instruction = frame->ip - frame->function->chunk.code - 1;
-    int line = frame->function->chunk.lineStarts[instruction].lineNumber;
-
-    fprintf(vm->ferr, "[line %d] in script\n", line);
+//    CallFrame* frame = &vm->frames[vm->frameCount - 1];
+//    size_t instruction = frame->ip - frame->function->chunk.code - 1;
+//    int line = frame->function->chunk.lineStarts[instruction].lineNumber;
+//
+//    fprintf(vm->ferr, "[line %d] in script\n", line);
     resetStack(vm);
 }
 

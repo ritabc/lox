@@ -82,5 +82,6 @@ A separate metaclass exists for each class. It holds any static (class) methods 
 ###### generated from Challenges in text
 #### Shown with link to another branch if that was deemed necessary
 1. Instead of storing line numbers in an array the length of codes, where every element is the line number that code is on, use a run-length encoding scheme. 
+   ** although this addition was reverted when chunks started being used for each function, instead of 1 chunk per file.
 1. Add testing framework (interpret_test.c)
 2. 
