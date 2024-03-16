@@ -9,15 +9,35 @@
 #include "table.h"
 #include "value.h"
 
-#define STACK_MAX 256
+
+#define FRAMES_MAX 64
+#define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
+
+
+// Forward declare ObjFunction???
+struct ObjFunction;
+
+// A CallFrame represents a single ongoing function call
+// A CallFrame for each live function invocation aka each call that hasn't been returned yet.
+// Tracks where on the stack that function's locals are, where the caller should resume
+typedef struct {
+    // pointer to the function being called.
+    // Used to look up constants, etc
+    struct ObjFunction* function;
+
+    // the ip of the caller's CallFrame, for resuming after returning from this function (pointer to instruction about to be executed) TODO: verify
+    uint8_t* ip;
+
+    // points into the VM's value stack at the first slot this function can use
+    Value* slots;
+} CallFrame;
 
 typedef struct {
     FILE* fout;
     FILE* ferr;
 
-    Chunk* chunk;
-
-    uint8_t* ip; // instruction pointer or program counter. Points to instruction about to be executed
+    CallFrame frames[FRAMES_MAX];
+    int frameCount;
 
     Value stack[STACK_MAX];
 

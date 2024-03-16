@@ -1,11 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "common.h"
-#include "debug.h"
 #include "vm.h"
-#include "utest.h"
 
 static void repl() {
     VM vm;

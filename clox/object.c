@@ -23,6 +23,15 @@ static Obj* allocateObject(VM* vm, size_t size, ObjType type) {
     return object;
 }
 
+ObjFunction* newFunction(VM* vm) {
+    ObjFunction* function = ALLOCATE_OBJ(vm, ObjFunction, OBJ_FUNCTION);
+    // set up with blank state, fill it in later after the function is created
+    function->arity = 0;
+    function->name = NULL;
+    initChunk(&function->chunk);
+    return function;
+}
+
 // create a new ObjString on the heap, initialize its fields
 // kinda like an OOP constructor, so first calls 'base class' constructor to init Obj state
 // only called for new strings (if they already exist in our vm.strings hash Set, allocateString won't have been called)
@@ -60,8 +69,19 @@ ObjString* copyString(VM* vm, const char* chars, int length) {
     return allocateString(vm, heapChars, length, hash);
 }
 
+static void printFunction(ObjFunction* function) {
+    if (function->name == NULL) {
+        printf("<script>");
+        return;
+    }
+    printf("<fn %s>", function->name->chars);
+}
+
 void printObject(Value value, FILE* fd) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_FUNCTION:
+            printFunction(AS_FUNCTION(value));
+            break;
         case OBJ_STRING:
             fprintf(fd, "%s", AS_CSTRING(value));
             break;
