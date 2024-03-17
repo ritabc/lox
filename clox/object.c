@@ -32,6 +32,14 @@ ObjFunction* newFunction(VM* vm) {
     return function;
 }
 
+// Constructor for native function
+// Takes a C function pointer to wrap in an ObjNative
+ObjNative* newNative(VM* vm, NativeFn function) {
+    ObjNative* native = ALLOCATE_OBJ(vm, ObjNative, OBJ_NATIVE);
+    native->function = function;
+    return native;
+}
+
 // create a new ObjString on the heap, initialize its fields
 // kinda like an OOP constructor, so first calls 'base class' constructor to init Obj state
 // only called for new strings (if they already exist in our vm.strings hash Set, allocateString won't have been called)
@@ -69,18 +77,21 @@ ObjString* copyString(VM* vm, const char* chars, int length) {
     return allocateString(vm, heapChars, length, hash);
 }
 
-static void printFunction(ObjFunction* function) {
+static void printFunction(ObjFunction* function, FILE* fd) {
     if (function->name == NULL) {
         printf("<script>");
         return;
     }
-    printf("<fn %s>", function->name->chars);
+    fprintf(fd, "<fn %s>", function->name->chars);
 }
 
 void printObject(Value value, FILE* fd) {
     switch (OBJ_TYPE(value)) {
         case OBJ_FUNCTION:
-            printFunction(AS_FUNCTION(value));
+            printFunction(AS_FUNCTION(value), fd);
+            break;
+        case OBJ_NATIVE:
+            fprintf(fd, "<native fn>");
             break;
         case OBJ_STRING:
             fprintf(fd, "%s", AS_CSTRING(value));

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <time.h>
 
 #include "vm.h"
 #include "common.h"
@@ -18,6 +19,10 @@
 // But in the interest of keeping things small for the book,
 // it's a global variable
 //VM vm; // commented out b/c not needed after refactor for testing
+
+static Value clockNative(int argCount, Value* args) {
+    return NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
+}
 
 static void resetStack(VM* vm) {
     vm->stackTop = vm->stack;
@@ -52,6 +57,14 @@ static void runtimeError(VM* vm, const char* format, ...) {
     resetStack(vm);
 }
 
+static void defineNative(VM* vm, const char* name, NativeFn function) {
+    push(vm, OBJ_VAL(copyString(vm, name, (int) strlen(name))));
+    push(vm, OBJ_VAL(newNative(vm, function)));
+    tableSet(&vm->globals, AS_STRING(vm->stack[0]), vm->stack[1]);
+    pop(vm);
+    pop(vm);
+}
+
 void initVM(VM* vm, FILE* fout, FILE* ferr) {
     vm->fout = fout;
     vm->ferr = ferr;
@@ -59,6 +72,8 @@ void initVM(VM* vm, FILE* fout, FILE* ferr) {
     vm->objects = NULL;
     initTable(&vm->globals);
     initTable(&vm->strings);
+
+    defineNative(vm, "clock", clockNative);
 }
 
 void freeVM(VM* vm) {
@@ -115,6 +130,13 @@ static bool callValue(VM* vm, Value callee, int argCount) {
         switch (OBJ_TYPE(callee)) {
             case OBJ_FUNCTION:
                 return call(vm, AS_FUNCTION(callee), argCount);
+            case OBJ_NATIVE: {
+                NativeFn native = AS_NATIVE(callee);
+                Value result = native(argCount, vm->stackTop - argCount);
+                vm->stackTop -= argCount + 1;
+                push(vm, result);
+                return true;
+            }
             default:
                 break;
         }
