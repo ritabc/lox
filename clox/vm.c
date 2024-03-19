@@ -71,6 +71,8 @@ void initVM(VM* vm, FILE* fout, FILE* ferr) {
     vm->ferr = ferr;
     resetStack(vm);
     vm->objects = NULL;
+    vm->bytesAllocated = 0;
+    vm->nextGC = 1024 * 1024;
 
     vm->grayCount = 0;
     vm->grayCapacity = 0;
@@ -193,8 +195,8 @@ static bool isFalsey(Value value) {
 }
 
 static void concatenate(VM* vm) {
-    ObjString* b = AS_STRING(pop(vm));
-    ObjString* a = AS_STRING(pop(vm));
+    ObjString* b = AS_STRING(peek(vm, 0));
+    ObjString* a = AS_STRING(peek(vm, 1));
 
     int length = a->length + b->length;
     char* chars = ALLOCATE(vm, char, length+1);
@@ -203,6 +205,8 @@ static void concatenate(VM* vm) {
     chars[length] = '\0';
 
     ObjString* result = takeString(vm, chars, length);
+    pop(vm);
+    pop(vm);
     push(vm, OBJ_VAL(result));
 }
 

@@ -13,6 +13,8 @@
 #include "debug.h"
 #endif
 
+#define GC_HEAP_GROW_FACTOR 2
+
 /*
  * Reallocates any block stored at pointer.
  * Converts the block from oldSize bytes large to newSize bytes large.
@@ -25,10 +27,14 @@
  * 4. nonZero -> larger block   : grow existing allocation
  */
 void* reallocate(VM* vm, void* pointer, size_t oldSize, size_t newSize) {
+    vm->bytesAllocated += newSize - oldSize;
     if (newSize > oldSize) {
 #ifdef DEBUG_STRESS_GC
         collectGarbage(vm);
 #endif
+        if (vm->bytesAllocated > vm->nextGC) {
+            collectGarbage(vm);
+        }
     }
    if (newSize == 0) {
        free(pointer);
@@ -191,6 +197,7 @@ static void sweep(VM* vm) {
 void collectGarbage(VM* vm) {
 #ifdef DEBUG_LOG_GC
     printf("-- gc begin\n");
+    size_t before = vm->bytesAllocated;
 #endif
 
     markRoots(vm);
@@ -198,8 +205,11 @@ void collectGarbage(VM* vm) {
     tableRemoveWhite(&vm->strings);
     sweep(vm);
 
+    vm->nextGC = vm->bytesAllocated * GC_HEAP_GROW_FACTOR;
+
 #ifdef DEBUG_LOG_GC
     printf("-- gc end\n");
+    printf("   collected %zu bytes (from %zu to %zu) next at %zu\n", before - vm->bytesAllocated, before, vm->bytesAllocated, vm->nextGC);
 #endif
 }
 

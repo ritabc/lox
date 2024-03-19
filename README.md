@@ -80,9 +80,11 @@ A separate metaclass exists for each class. It holds any static (class) methods 
 22. Support for Closures. In jlox we dynamically allocated memory for all local vars, but that'd be slower as clox uses a stack which is really fast. Most locals aren't captured by closures and do use stack semantics. Local variables in clox will be implemented with 1 of 2 different strategies. For locals that aren't captured in closures, keep them as they are on the stack. When a local is captured by a closure, we'll use another method that lifts them on to the heap where they can then live as long as needed.
     - Use upvalue concept: a local variable in an enclosing function. Every closure maintains an array of upvalues, one for each surrounding local var that the closure uses. This allows us to have a closed-over variable live on the stack exactly like a normal local var until it is closed over.
     - The upvalue will point back into the stack to where it'the var it captured lives. When the closure accesses a closed-over var, it goes through the corresponding upvalue to reach it
-23. Mark-Sweep GC which does not free the following:
-    - roots (any object the VM can reach directly w/o going through another object's reference. Most roots are global vars or on the stack or upvalues)
-    - any object referred to from a reachable object
+23. Mark-Sweep GC.
+    - It does not free the following:
+        - roots (any object the VM can reach directly w/o going through another object's reference. Most roots are global vars or on the stack or upvalues)
+        - any object referred to from a reachable object
+    - When to run the GC? Use a self-adjusting heap. As the amount of live memory increases, collect less frequently to avoid sacrificing throughput by re-traversing the growing pile of objects. As the amount of live memory goes down, collect more frequently to not lose too much latency by waiting too long
 
 ### Additional features
 ###### generated from Challenges in text

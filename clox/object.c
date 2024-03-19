@@ -66,8 +66,12 @@ static ObjString* allocateString(VM* vm, char* chars, int length, uint32_t hash)
     string->length = length;
     string->chars = chars;
     string->hash = hash;
+
+    // push & pop ensures the string is safe while the table is being resized
+    push(vm, OBJ_VAL(string));
     // whenever we create a new unique string, add it to the table (more like a strings set - nil values)
     tableSet(vm, &vm->strings, string, NIL_VAL);
+    pop(vm);
     return string;
 }
 

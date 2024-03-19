@@ -52,6 +52,9 @@ typedef struct VM {
 
     struct ObjUpvalue* openUpvalues;
 
+    size_t bytesAllocated;
+    size_t nextGC;
+
     // a linked list of heap-allocated Objs, for freeing purposes
     Obj* objects;
 
