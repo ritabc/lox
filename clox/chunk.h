@@ -8,6 +8,8 @@ A chunk is a sequence of bytecode
 #include "common.h"
 #include "value.h"
 
+typedef struct VM VM;
+
 // An Operation Code, or opcode, is 1 byte.
 // It tells us what kind of instruction we're working with
 // Each instruction will have an opcode
@@ -57,8 +59,8 @@ typedef struct {
 } Chunk;
 
 void initChunk(Chunk* chunk);
-void freeChunk(Chunk* chunk);
-void writeChunk(Chunk* chunk, uint8_t byte, int lineNumber);
-int addConstant(Chunk* chunk, Value value);
+void freeChunk(VM* vm, Chunk* chunk);
+void writeChunk(VM* vm, Chunk* chunk, uint8_t byte, int lineNumber);
+int addConstant(VM* vm, Chunk* chunk, Value value);
 
 #endif //CLOX_CHUNK_H

@@ -14,17 +14,21 @@
 #define ALLOCATE_OBJ(vm, type, objectType) (type*)allocateObject(vm, sizeof(type), objectType)
 
 static Obj* allocateObject(VM* vm, size_t size, ObjType type) {
-    Obj* object = (Obj*)reallocate(NULL, 0, size);
+    Obj* object = (Obj*)reallocate(vm,NULL, 0, size);
     object->type = type;
-
+    object->isMarked = false;
     // insert self at head of linked list of objects
     object->next = vm->objects;
     vm->objects = object;
+
+#ifdef DEBUG_LOG_GC
+    printf("%p allocate %zu for %d\n", (void*)object, size, type)
+#endif
     return object;
 }
 
 ObjClosure* newClosure(VM* vm, ObjFunction* function) {
-    ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
+    ObjUpvalue** upvalues = ALLOCATE(vm, ObjUpvalue*, function->upvalueCount);
     for (int i = 0; i < function->upvalueCount; i++) {
         // ensure the memory manager never sees uninit'ed memory
         upvalues[i] = NULL;
@@ -63,7 +67,7 @@ static ObjString* allocateString(VM* vm, char* chars, int length, uint32_t hash)
     string->chars = chars;
     string->hash = hash;
     // whenever we create a new unique string, add it to the table (more like a strings set - nil values)
-    tableSet(&vm->strings, string, NIL_VAL);
+    tableSet(vm, &vm->strings, string, NIL_VAL);
     return string;
 }
 
@@ -85,7 +89,7 @@ ObjString* copyString(VM* vm, const char* chars, int length) {
     ObjString* interned = tableFindString(&vm->strings, chars, length, hash);
     if (interned != NULL) return interned;
 
-    char* heapChars = ALLOCATE(char, length+1);
+    char* heapChars = ALLOCATE(vm, char, length+1);
     memcpy(heapChars, chars, length);
     heapChars[length] = '\0';
     return allocateString(vm, heapChars, length, hash);
@@ -137,7 +141,7 @@ ObjString* takeString(VM* vm, char* chars, int length) {
     ObjString* interned = tableFindString(&vm->strings, chars, length, hash);
 
     if (interned != NULL) {
-        FREE_ARRAY(char, chars, length+1);
+        FREE_ARRAY(vm, char, chars, length+1);
         return interned;
     }
 

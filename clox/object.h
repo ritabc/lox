@@ -10,7 +10,7 @@
 #include "common.h"
 #include "value.h"
 #include "chunk.h"
-#include "vm.h" // Problematic? object includes vm.h
+#include "vm.h"
 
 #define OBJ_TYPE(value)     (AS_OBJ(value)->type)
 
@@ -36,6 +36,7 @@ typedef enum {
 
 struct Obj {
     ObjType type;
+    bool isMarked;
     struct Obj* next;
 };
 

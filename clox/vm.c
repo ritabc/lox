@@ -61,7 +61,7 @@ static void runtimeError(VM* vm, const char* format, ...) {
 static void defineNative(VM* vm, const char* name, NativeFn function) {
     push(vm, OBJ_VAL(copyString(vm, name, (int) strlen(name))));
     push(vm, OBJ_VAL(newNative(vm, function)));
-    tableSet(&vm->globals, AS_STRING(vm->stack[0]), vm->stack[1]);
+    tableSet(vm, &vm->globals, AS_STRING(vm->stack[0]), vm->stack[1]);
     pop(vm);
     pop(vm);
 }
@@ -78,8 +78,8 @@ void initVM(VM* vm, FILE* fout, FILE* ferr) {
 }
 
 void freeVM(VM* vm) {
-    freeTable(&vm->globals);
-    freeTable(&vm->strings);
+    freeTable(vm, &vm->globals);
+    freeTable(vm, &vm->strings);
     freeObjects(vm);
 }
 
@@ -193,7 +193,7 @@ static void concatenate(VM* vm) {
     ObjString* a = AS_STRING(pop(vm));
 
     int length = a->length + b->length;
-    char* chars = ALLOCATE(char, length+1);
+    char* chars = ALLOCATE(vm, char, length+1);
     memcpy(chars, a->chars, a->length);
     memcpy(chars+a->length, b->chars, b->length);
     chars[length] = '\0';
@@ -275,13 +275,13 @@ for (;;) {
         }
         case OP_DEFINE_GLOBAL: {
             ObjString* name = READ_STRING();
-            tableSet(&vm->globals, name, peek(vm, 0));
+            tableSet(vm, &vm->globals, name, peek(vm, 0));
             pop(vm);
             break;
         }
         case OP_SET_GLOBAL: {
             ObjString *name = READ_STRING();
-            if (tableSet(&vm->globals, name, peek(vm, 0))) {
+            if (tableSet(vm, &vm->globals, name, peek(vm, 0))) {
                 // it's a new key (hasn't been defined yet - it's a runtime error to try & assign to it)
                 tableDelete(&vm->globals, name);
                 runtimeError(vm,"Undefined variable '%s'.", name->chars);

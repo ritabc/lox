@@ -13,7 +13,6 @@
 #define FRAMES_MAX 64
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
 
-
 // Forward declarations
 struct ObjFunction;
 struct ObjClosure;
@@ -34,7 +33,7 @@ typedef struct {
     Value* slots;
 } CallFrame;
 
-typedef struct {
+typedef struct VM {
     FILE* fout;
     FILE* ferr;
 

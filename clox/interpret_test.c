@@ -62,7 +62,7 @@ void addToExpecteds(ExpectedArray* exps, ExpectedLine* expLine) {
     if (exps->capacity < exps->count+1) {
         int oldCapacity = exps->capacity;
         exps->capacity = GROW_CAPACITY(oldCapacity);
-        exps->outLines = GROW_ARRAY(ExpectedLine, exps->outLines, oldCapacity, exps->capacity);
+        exps->outLines = GROW_ARRAY(&vm, ExpectedLine, exps->outLines, oldCapacity, exps->capacity);
     }
     exps->outLines[exps->count].output = expLine->output;
     exps->outLines[exps->count++].type = expLine->type;

@@ -14,9 +14,9 @@ void initChunk(Chunk* chunk) {
     initValueArray(&chunk->constants);
 }
 
-void freeChunk(Chunk* chunk) {
-    FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
-    FREE_ARRAY(int, chunk->lines, chunk->capacity);
+void freeChunk(VM* vm, Chunk* chunk) {
+    FREE_ARRAY(vm, uint8_t, chunk->code, chunk->capacity);
+    FREE_ARRAY(vm, int, chunk->lines, chunk->capacity);
     freeValueArray(&chunk->constants);
     initChunk(chunk);
 }
@@ -26,13 +26,13 @@ void freeChunk(Chunk* chunk) {
  * The byte written can be an opcode, or an operand (like a ValueArray constant aka an index to a constant value)
  * Takes pointer to the chunk, the byte to write, and the line number the bytecode (instruction) comes from
  */
-void writeChunk(Chunk* chunk, uint8_t byte, int line) {
+void writeChunk(VM* vm, Chunk* chunk, uint8_t byte, int line) {
     // grow code capacity if necessary
     if (chunk->capacity < chunk->count + 1) {
         int oldCapacity = chunk->capacity;
         chunk->capacity = GROW_CAPACITY(oldCapacity);
-        chunk->code = GROW_ARRAY(uint8_t, chunk->code, oldCapacity, chunk->capacity);
-        chunk->lines = GROW_ARRAY(int, chunk->lines, oldCapacity, chunk->capacity);
+        chunk->code = GROW_ARRAY(vm, uint8_t, chunk->code, oldCapacity, chunk->capacity);
+        chunk->lines = GROW_ARRAY(vm, int, chunk->lines, oldCapacity, chunk->capacity);
     }
 
     // write byte to code
@@ -45,7 +45,7 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
  * A convenience method to add a new constant to the chunk('s ValueArray)
  * Return the index of the added constant
  */
-int addConstant(Chunk* chunk, Value value) {
-    writeValueArray(&chunk->constants, value);
+int addConstant(VM* vm, Chunk* chunk, Value value) {
+    writeValueArray(vm,&chunk->constants, value);
     return chunk->constants.count - 1;
 }

@@ -18,8 +18,8 @@ void initTable(Table* table) {
     table->entries = NULL;
 }
 
-void freeTable(Table* table) {
-    FREE_ARRAY(Entry, table->entries, table->capacity);
+void freeTable(VM* vm, Table* table) {
+    FREE_ARRAY(vm, Entry, table->entries, table->capacity);
     initTable(table);
 }
 
@@ -65,8 +65,8 @@ bool tableGet(Table* table, ObjString* key, Value* value) {
     return true;
 }
 
-static void adjustCapacity(Table* table, int capacity) {
-    Entry* entries = ALLOCATE(Entry, capacity);
+static void adjustCapacity(VM* vm, Table* table, int capacity) {
+    Entry* entries = ALLOCATE(vm, Entry, capacity);
     for (int i = 0; i < capacity; i++) {
         entries[i].key = NULL;
         entries[i].value = NIL_VAL;
@@ -90,7 +90,7 @@ static void adjustCapacity(Table* table, int capacity) {
     }
 
     // Release memory for old array
-    FREE_ARRAY(Entry, table->entries, table->capacity);
+    FREE_ARRAY(vm, Entry, table->entries, table->capacity);
     table->entries = entries;
     table->capacity = capacity;
 }
@@ -99,11 +99,11 @@ static void adjustCapacity(Table* table, int capacity) {
 // Before tableSet is called, we ensure the ObjString* key we pass is interned,
 // meaning it'll be either a textually new string,
 // or a pointer to a textually equivalent string.
-bool tableSet(Table* table, ObjString* key, Value value) {
+bool tableSet(VM* vm, Table* table, ObjString* key, Value value) {
     // allocate a big-enough array
     if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
         int capacity = GROW_CAPACITY(table->capacity);
-        adjustCapacity(table, capacity);
+        adjustCapacity(vm, table, capacity);
     }
 
     Entry* entry = findEntry(table->entries, table->capacity, key);
@@ -136,11 +136,11 @@ bool tableDelete(Table* table, ObjString* key) {
 // Walks the bucket array of source table
 // When encounters a non-empty bucket,
 // adds the entry to the dest hash table using tableSet()
-void tableAddAll(Table* from, Table* to) {
+void tableAddAll(VM* vm, Table* from, Table* to) {
     for (int i = 0; i < from->capacity; i++) {
         Entry* entry = &from->entries[i];
         if (entry->key != NULL) {
-            tableSet(to, entry->key, entry->value);
+            tableSet(vm, to, entry->key, entry->value);
         }
     }
 }
@@ -164,5 +164,13 @@ ObjString* tableFindString(Table* table, const char* chars, int length, uint32_t
         }
 
         index = (index+1) % table->capacity;
+    }
+}
+
+void markTable(Table* table) {
+    for (int i = 0; i < table->capacity; i++) {
+        Entry* entry = &table->entries[i];
+        markObject((Obj*)entry->key);
+        markValue(entry->value);
     }
 }
