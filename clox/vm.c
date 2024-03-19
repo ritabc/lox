@@ -71,6 +71,10 @@ void initVM(VM* vm, FILE* fout, FILE* ferr) {
     vm->ferr = ferr;
     resetStack(vm);
     vm->objects = NULL;
+
+    vm->grayCount = 0;
+    vm->grayCapacity = 0;
+    vm->grayStack = NULL;
     initTable(&vm->globals);
     initTable(&vm->strings);
 

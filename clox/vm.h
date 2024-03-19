@@ -54,6 +54,10 @@ typedef struct VM {
 
     // a linked list of heap-allocated Objs, for freeing purposes
     Obj* objects;
+
+    int grayCount;
+    int grayCapacity;
+    Obj** grayStack;
 } VM;
 
 typedef enum {

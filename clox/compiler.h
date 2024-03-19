@@ -10,6 +10,6 @@
 #include "vm.h"
 
 ObjFunction* compile(VM* vm, const char* source);
-void markCompilerRoots();
+void markCompilerRoots(VM* vm);
 
 #endif //CLOX_COMPILER_H

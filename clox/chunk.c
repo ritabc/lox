@@ -17,7 +17,7 @@ void initChunk(Chunk* chunk) {
 void freeChunk(VM* vm, Chunk* chunk) {
     FREE_ARRAY(vm, uint8_t, chunk->code, chunk->capacity);
     FREE_ARRAY(vm, int, chunk->lines, chunk->capacity);
-    freeValueArray(&chunk->constants);
+    freeValueArray(vm, &chunk->constants);
     initChunk(chunk);
 }
 
@@ -46,6 +46,6 @@ void writeChunk(VM* vm, Chunk* chunk, uint8_t byte, int line) {
  * Return the index of the added constant
  */
 int addConstant(VM* vm, Chunk* chunk, Value value) {
-    writeValueArray(vm,&chunk->constants, value);
+    writeValueArray(vm, &chunk->constants, value);
     return chunk->constants.count - 1;
 }

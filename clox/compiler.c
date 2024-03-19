@@ -280,7 +280,7 @@ static void endScope(VM* vm) {
 }
 
 
-static void expression();
+static void expression(VM* vm);
 static void statement(VM* vm);
 static void declaration(VM* vm);
 static ParseRule* getRule(TokenType type);
@@ -425,12 +425,12 @@ static void defineVariable(VM* vm, uint8_t global) {
     emitBytes(vm, OP_DEFINE_GLOBAL, global);
 }
 
-static uint8_t argumentList() {
+static uint8_t argumentList(VM* vm) {
     uint8_t argCount = 0;
     if (!check(TOKEN_RIGHT_PAREN)) {
         do {
             // Each of the following arg expressions generates code that leavees its value on the stack in preparation for the call
-            expression();
+            expression(vm);
             if (argCount == 255) {
                 error("Can't have more than 255 arguments.");
             }
@@ -453,7 +453,7 @@ static void and_(VM* vm, bool canAssign) {
 // assume the initial '(' has already been consumed
 // grouping is purely syntactic and has no runtime semantics and doesn't emit any bytecode on its own
 static void grouping(VM* vm, bool canAssign) {
-    expression();
+    expression(vm);
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
@@ -494,7 +494,7 @@ static void namedVariable(VM* vm, Token name, bool canAssign) {
         setOp = OP_SET_GLOBAL;
     }
     if (canAssign && match(TOKEN_EQUAL)) {
-        expression();
+        expression(vm);
         emitBytes(vm, setOp, (uint8_t)arg);
     } else {
         emitBytes(vm, getOp, (uint8_t)arg);
@@ -528,7 +528,7 @@ static void binary(VM* vm, bool canAssign) {
 }
 
 static void call(VM* vm, bool canAssign) {
-    uint8_t argCount = argumentList();
+    uint8_t argCount = argumentList(vm);
     emitBytes(vm, OP_CALL, argCount);
 }
 
@@ -888,10 +888,10 @@ ObjFunction* compile(VM* vm, const char* source) {
     return parser.hadError ? NULL : function;
 }
 
-void markCompilerRoots() {
+void markCompilerRoots(VM* vm) {
     Compiler* compiler = current;
     while (compiler != NULL) {
-        markObject((Obj*)compiler->function);
+        markObject(vm, (Obj*)compiler->function);
         compiler = compiler->enclosing;
     }
 }
