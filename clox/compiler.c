@@ -62,7 +62,16 @@ typedef struct {
     // 0 - global scope
     // highest - the innermost scope
     int depth;
+
+    // Tells if a given local is captured by a closure
+    // true if the local is captured by any later neested func declaration
+    bool isCaptured;
 } Local;
+
+typedef struct {
+    uint8_t index; // the local slot the upvalue captures
+    bool isLocal;
+} Upvalue;
 
 typedef enum {
     TYPE_FUNCTION,
@@ -84,6 +93,9 @@ typedef struct Compiler {
     // how many locals are in scope
     // aka how many of the array slots of locals are in use
     int localCount;
+
+    // Use upvalues for implementing closures
+    Upvalue upvalues[UINT8_COUNT];
 
     // the number of blocks surrounding the current bit of code we're compiling
     int scopeDepth;
@@ -230,6 +242,7 @@ static void initCompiler(Compiler* compiler, FunctionType type, VM* vm) {
     // compiler implicitly claims stack slot zero for the VM's own internal use
     Local* local = &current->locals[current->localCount++];
     local->depth = 0;
+    local->isCaptured = false;
     local->name.start = "";
     local->name.length = 0;
 }
@@ -256,15 +269,19 @@ static void endScope() {
     current->scopeDepth--;
 
     while (current->localCount > 0 && current->locals[current->localCount-1].depth > current->scopeDepth) {
-        emitByte(OP_POP);
+        if (current->locals[current->localCount - 1].isCaptured) {
+            emitByte(OP_CLOSE_UPVALUE);
+        } else {
+            emitByte(OP_POP);
+        }
         current->localCount--;
     }
 }
 
 
 static void expression();
-static void statement();
-static void declaration();
+static void statement(VM* vm);
+static void declaration(VM* vm);
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
 
@@ -294,6 +311,49 @@ static int resolveLocal(Compiler* compiler, Token* name) {
     return -1;
 }
 
+// Upvalues used for closures
+static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
+    int upvalueCount = compiler->function->upvalueCount;
+
+    // reuse upvalue index if we find an upvalue in the array whose slot index matches the one we're adding
+    for (int i = 0; i < upvalueCount; i++) {
+        Upvalue* upvalue = &compiler->upvalues[i];
+        if (upvalue->index == index && upvalue->isLocal == isLocal) {
+            return i;
+        }
+    }
+
+    if (upvalueCount == UINT8_COUNT) {
+        error("Too many closure variables in function.");
+        return 0;
+    }
+
+    compiler->upvalues[upvalueCount].isLocal = isLocal;
+    compiler->upvalues[upvalueCount].index = index;
+    return compiler->function->upvalueCount++;
+}
+
+// looks for a local variable with name declared in any of the surrounding functions.
+// If found, it returns an upvalue index for that variable
+// if not, returns -1
+// only called when we know the variable isn't in the current compiler
+static int resolveUpvalue(Compiler* compiler, Token* name) {
+    if (compiler->enclosing == NULL) return -1;
+
+    int local = resolveLocal(compiler->enclosing, name);
+    if (local != -1) {
+        compiler->enclosing->locals[local].isCaptured = true;
+        return addUpvalue(compiler, (uint8_t)local, true);
+    }
+
+    int upvalue = resolveUpvalue(compiler->enclosing, name);
+    if (upvalue != -1) {
+        return addUpvalue(compiler, (uint8_t)upvalue, false);
+    }
+
+    return -1;
+}
+
 static void addLocal(Token name) {
     if (current->localCount == UINT8_COUNT) {
         error("Too many local variables in function.");
@@ -303,6 +363,7 @@ static void addLocal(Token name) {
     Local* local = &current->locals[current->localCount++];
     local->name = name;
     local->depth = -1; // indicate the variable is 'declared' but 'uninitialized'
+    local->isCaptured = false;
 }
 
 // the function which tells the compiler to record the existence of the variable
@@ -423,12 +484,14 @@ static void namedVariable(Token name, bool canAssign) {
     if (arg != -1) {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
+    } else if ((arg = resolveUpvalue(current, &name)) != -1) {
+        getOp = OP_GET_UPVALUE;
+        setOp = OP_SET_UPVALUE;
     } else {
         arg = identifierConstant(&name);
         getOp = OP_GET_GLOBAL;
         setOp = OP_SET_GLOBAL;
     }
-
     if (canAssign && match(TOKEN_EQUAL)) {
         expression();
         emitBytes(setOp, (uint8_t)arg);
@@ -567,9 +630,9 @@ static void expression() {
     parsePrecedence(PREC_ASSIGNMENT);
 }
 
-static void block() {
+static void block(VM* vm) {
     while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-        declaration();
+        declaration(vm);
     }
 
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
@@ -597,13 +660,18 @@ static void function(VM* vm, FunctionType type) {
 
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
     consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
-    block();
+    block(vm);
 
     // After reaching the end of the func's block body,
     // call endCompiler, which yields the newly compiled function object
     // which is stored as a constant in the surrounding func's constant table
     ObjFunction* function = endCompiler();
-    emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
+    emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
+
+    for (int i = 0; i < function->upvalueCount; i++) {
+        emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+        emitByte(compiler.upvalues[i].index);
+    }
 }
 
 static void funDeclaration(VM* vm) {
@@ -633,7 +701,7 @@ static void expressionStatement() {
     emitByte(OP_POP);
 }
 
-static void forStatement() {
+static void forStatement(VM* vm) {
     beginScope(); // necessary for var declared in for loop - that var should be scoped to the loop body
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
     if (match(TOKEN_SEMICOLON)) {
@@ -670,7 +738,7 @@ static void forStatement() {
     }
 
 
-    statement();
+    statement(vm);
     emitLoop(loopStart);
 
     if (exitJump != -1) {
@@ -681,7 +749,7 @@ static void forStatement() {
     endScope();
 }
 
-static void ifStatement() {
+static void ifStatement(VM* vm) {
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
     // Put condition expression on top of stack,
     // so we can use it to determine whether to execute the then branch or skip it, at runtime
@@ -694,7 +762,7 @@ static void ifStatement() {
 
     // when the condition is truthy, pop it right before the code inside the then branch
     emitByte(OP_POP);
-    statement();
+    statement(vm);
 
     int elseJump = emitJump(OP_JUMP);
 
@@ -704,7 +772,7 @@ static void ifStatement() {
     // if the condition is falsey, pop at the beginning of the else branch
     emitByte(OP_POP);
 
-    if (match(TOKEN_ELSE)) statement();
+    if (match(TOKEN_ELSE)) statement(vm);
     patchJump(elseJump);
 }
 
@@ -727,7 +795,7 @@ static void returnStatement() {
     }
 }
 
-static void whileStatement() {
+static void whileStatement(VM* vm) {
     int loopStart = currentChunk()->count;
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
     expression();
@@ -735,7 +803,7 @@ static void whileStatement() {
 
     int exitJump = emitJump(OP_JUMP_IF_FALSE);
     emitByte(OP_POP);
-    statement();
+    statement(vm);
 
     // jump backwards
     emitLoop(loopStart);
@@ -774,26 +842,26 @@ static void declaration(VM* vm) {
     } else if (match(TOKEN_VAR)) {
         varDeclaration();
     } else {
-        statement();
+        statement(vm);
     }
 
     if (parser.panicMode) synchronize();
 }
 
-static void statement() {
+static void statement(VM* vm) {
     if (match(TOKEN_PRINT)) {
         printStatement();
     } else if (match(TOKEN_FOR)) {
-        forStatement();
+        forStatement(vm);
     } else if (match(TOKEN_IF)) {
-        ifStatement();
+        ifStatement(vm);
     } else if (match(TOKEN_RETURN)) {
         returnStatement();
     } else if (match(TOKEN_WHILE)) {
-        whileStatement();
+        whileStatement(vm);
     } else if (match(TOKEN_LEFT_BRACE)) {
         beginScope();
-        block();
+        block(vm);
         endScope();
     } else {
         expressionStatement();

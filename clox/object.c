@@ -23,10 +23,24 @@ static Obj* allocateObject(VM* vm, size_t size, ObjType type) {
     return object;
 }
 
+ObjClosure* newClosure(VM* vm, ObjFunction* function) {
+    ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
+    for (int i = 0; i < function->upvalueCount; i++) {
+        // ensure the memory manager never sees uninit'ed memory
+        upvalues[i] = NULL;
+    }
+    ObjClosure* closure = ALLOCATE_OBJ(vm, ObjClosure, OBJ_CLOSURE);
+    closure->function = function;
+    closure->upvalues = upvalues;
+    closure->upvalueCount = function->upvalueCount;
+    return closure;
+}
+
 ObjFunction* newFunction(VM* vm) {
     ObjFunction* function = ALLOCATE_OBJ(vm, ObjFunction, OBJ_FUNCTION);
     // set up with blank state, fill it in later after the function is created
     function->arity = 0;
+    function->upvalueCount = 0;
     function->name = NULL;
     initChunk(&function->chunk);
     return function;
@@ -77,6 +91,14 @@ ObjString* copyString(VM* vm, const char* chars, int length) {
     return allocateString(vm, heapChars, length, hash);
 }
 
+ObjUpvalue * newUpvalue(VM* vm, Value* slot) {
+    ObjUpvalue* upvalue = ALLOCATE_OBJ(vm, ObjUpvalue, OBJ_UPVALUE);
+    upvalue->closed = NIL_VAL;
+    upvalue->location = slot;
+    upvalue->next = NULL;
+    return upvalue;
+}
+
 static void printFunction(ObjFunction* function, FILE* fd) {
     if (function->name == NULL) {
         printf("<script>");
@@ -87,6 +109,9 @@ static void printFunction(ObjFunction* function, FILE* fd) {
 
 void printObject(Value value, FILE* fd) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_CLOSURE:
+            printFunction(AS_CLOSURE(value)->function, fd);
+            break;
         case OBJ_FUNCTION:
             printFunction(AS_FUNCTION(value), fd);
             break;
@@ -95,6 +120,9 @@ void printObject(Value value, FILE* fd) {
             break;
         case OBJ_STRING:
             fprintf(fd, "%s", AS_CSTRING(value));
+            break;
+        case OBJ_UPVALUE:
+            fprintf(fd, "upvalue");
             break;
     }
 }

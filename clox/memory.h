@@ -27,6 +27,6 @@
 
 void* reallocate(void* pointer, size_t oldSize, size_t newSize);
 
-void freeObjects();
+void freeObjects(VM* vm);
 
 #endif //CLOX_MEMORY_H

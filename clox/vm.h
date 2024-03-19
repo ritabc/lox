@@ -14,8 +14,10 @@
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
 
 
-// Forward declare ObjFunction???
+// Forward declarations
 struct ObjFunction;
+struct ObjClosure;
+struct ObjUpvalue;
 
 // A CallFrame represents a single ongoing function call
 // A CallFrame for each live function invocation aka each call that hasn't been returned yet.
@@ -23,7 +25,7 @@ struct ObjFunction;
 typedef struct {
     // pointer to the function being called.
     // Used to look up constants, etc
-    struct ObjFunction* function;
+    struct ObjClosure* closure;
 
     // the ip of the caller's CallFrame, for resuming after returning from this function (pointer to instruction about to be executed) TODO: verify
     uint8_t* ip;
@@ -48,6 +50,8 @@ typedef struct {
 
     // A table to store strings for string interning (deduplication, as in, not duplicated) purposes
     Table strings;
+
+    struct ObjUpvalue* openUpvalues;
 
     // a linked list of heap-allocated Objs, for freeing purposes
     Obj* objects;

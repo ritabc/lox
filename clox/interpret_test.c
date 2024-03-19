@@ -11,7 +11,7 @@
 #include "vm.h"
 #include "memory.h"
 
-#define TEST_FILE_COUNTS 3
+#define TEST_FILE_COUNTS 25
 
 typedef struct {
     char* bufp;
@@ -96,10 +96,10 @@ static void getExpectedIfAnyFromSourceLine(char* sourceLine, ExpectedArray* exps
 
     // Eg: "expect runtime error: msg" --> want prefix + msg (entire comment)
     char* expectRuntimeErrorPrefix = "expect runtime error: ";
-    uint32_t expectPrefixLen = strlen(expectRuntimeErrorPrefix);
+    uint32_t expectPrefixLen = strlen(expectRuntimeErrorPrefix) + 3; // plus 3 for preceding '// '
     char* expectRuntimeError = strcasestr(comment, expectRuntimeErrorPrefix);
     if (expectRuntimeError != NULL) {
-        ExpectedLine* expected = newExpectedLine(EXP_RUNTIME_ERROR, comment, 0, strlen(comment));
+        ExpectedLine* expected = newExpectedLine(EXP_RUNTIME_ERROR, comment, expectPrefixLen, strlen(comment));
         addToExpecteds(exps, expected);
         return;
     }
@@ -135,27 +135,32 @@ static void getExpectedIfAnyFromSourceLine(char* sourceLine, ExpectedArray* exps
     }
 }
 
-// A recursive function that gathers names of all .lox test files within dirpath, adds them to testFiles
-static void getTestFilepaths(char* dirpath, char** loxFilePaths) {
+// A recursive function that gathers names of all .lox test files within enclosingDirPath, adds them to testFiles
+static void getTestFilepaths(char* enclosingDirPath, char** loxFilePaths) {
     DIR* dirp;
     struct dirent* dir;
-    dirp = opendir(dirpath);
+    dirp = opendir(enclosingDirPath);
     if (dirp == NULL) {
-        fprintf(stderr, "Could not open directory \"%s\".\n", dirpath);
+        fprintf(stderr, "Could not open directory \"%s\".\n", enclosingDirPath);
     }
     while ((dir = readdir(dirp)) != NULL) {
-        int originalDirpathLen = strlen(dirpath);
+        int enclosingDirPathLen = strlen(enclosingDirPath);
 
         char* dot = strrchr(dir->d_name, '.'); // strrchr will get the rightmost '.'
         if (dot && strcmp(dot, ".lox") == 0) {
             // Add .lox files to loxFiles
             // plus one for separating slash, one for null term
-            char testFile[originalDirpathLen + 2];
-            // make copy of dirpath b/c we want to use it in its unaltered state
+            char testFile[enclosingDirPathLen + 2];
+            // make copy of enclosingDirPath b/c we want to use it in its unaltered state
             // for other .lox file iterations of this loop & recursive searching.
-            strlcpy(testFile, dirpath, originalDirpathLen + 1);
-            testFile[originalDirpathLen] = '/';
-            uint32_t testFileLen = strlcat(testFile, dir->d_name, originalDirpathLen + strlen(dir->d_name) + 2);
+            strlcpy(testFile, enclosingDirPath, enclosingDirPathLen + 1);
+            testFile[enclosingDirPathLen] = '/';
+            testFile[enclosingDirPathLen+1] = '\0';
+
+            // TODO (remove) we're good above here, assume
+            // TODO (remove) what is the goal with the following lines?
+            // copy next filename (not path) from dir
+            uint32_t testFileLen = strlcat(testFile, dir->d_name, enclosingDirPathLen + 1 /*for ending '/'*/ + strlen(dir->d_name) + 1 /* for NUL*/);
             char* loxFilePathPtr = malloc(testFileLen*sizeof(char*));
             strlcpy(loxFilePathPtr, testFile, testFileLen + 1);
             loxFilePaths[numTests++] = loxFilePathPtr;
@@ -164,12 +169,12 @@ static void getTestFilepaths(char* dirpath, char** loxFilePaths) {
             if (strcmp(dir->d_name, ".") == 0 || strcmp(dir->d_name, "..") == 0 || strcmp(dir->d_name, ".DS_Store") == 0) {
                 continue;
             }
-            // concat new dir name to original dirpath
-            // but first make copy of dirpath so original is unaltered
-            char newDirpath[originalDirpathLen + 2];
-            strlcpy(newDirpath, dirpath, originalDirpathLen+1);
-            newDirpath[originalDirpathLen] = '/';
-            strlcat(newDirpath, dir->d_name, originalDirpathLen + strlen(dir->d_name) + 2);
+            // concat new dir name to original enclosingDirPath
+            // but first make copy of enclosingDirPath so original is unaltered
+            char newDirpath[enclosingDirPathLen + 2];
+            strlcpy(newDirpath, enclosingDirPath, enclosingDirPathLen+1);
+            newDirpath[enclosingDirPathLen] = '/';
+            strlcat(newDirpath, dir->d_name, enclosingDirPathLen + strlen(dir->d_name) + 2);
             getTestFilepaths(newDirpath, loxFilePaths);
         }
     }
@@ -240,7 +245,7 @@ static void getExpectedStrings(ExpectedArray* exps, MemBuf outExp, MemBuf errExp
 
 static void freeTestPaths(char** testPaths, int count) {
     for (int i = 0; i < count; i++) {
-        free(testPaths[i]);
+        free((void*) testPaths[i]);
     }
 }
 
