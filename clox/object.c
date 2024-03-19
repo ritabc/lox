@@ -56,6 +56,13 @@ ObjFunction* newFunction(VM* vm) {
     return function;
 }
 
+ObjInstance* newInstance(VM* vm, ObjClass* klass) {
+    ObjInstance* instance = ALLOCATE_OBJ(vm, ObjInstance, OBJ_INSTANCE);
+    instance->klass = klass;
+    initTable(&instance->fields);
+    return instance;
+}
+
 // Constructor for native function
 // Takes a C function pointer to wrap in an ObjNative
 ObjNative* newNative(VM* vm, NativeFn function) {
@@ -131,6 +138,9 @@ void printObject(Value value, FILE* fd) {
             break;
         case OBJ_FUNCTION:
             printFunction(AS_FUNCTION(value), fd);
+            break;
+        case OBJ_INSTANCE:
+            fprintf(fd, "%s instance", AS_INSTANCE(value)->klass->name->chars);
             break;
         case OBJ_NATIVE:
             fprintf(fd, "<native fn>");
