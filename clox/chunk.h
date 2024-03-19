@@ -43,6 +43,7 @@ typedef enum {
     OP_CLOSURE,
     OP_CLOSE_UPVALUE,
     OP_RETURN,
+    OP_CLASS,
 } OpCode;
 
 /* A chunk is a series of instructions, like a program from a file - that'll be loaded into 1 chunk. That chunk will be made of:

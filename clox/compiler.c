@@ -675,6 +675,18 @@ static void function(VM* vm, FunctionType type) {
     }
 }
 
+static void classDeclaration(VM* vm) {
+    consume(TOKEN_IDENTIFIER, "Expect class name.");
+    uint8_t nameConstant = identifierConstant(vm, &parser.previous);
+    declareVariable();
+
+    emitBytes(vm, OP_CLASS, nameConstant);
+    defineVariable(vm, nameConstant);
+
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+}
+
 static void funDeclaration(VM* vm) {
     uint8_t global = parseVariable(vm, "Expect function name.");
     markInitialized();
@@ -838,7 +850,9 @@ static void synchronize() {
 }
 
 static void declaration(VM* vm) {
-    if (match(TOKEN_FUN)) {
+    if (match(TOKEN_CLASS)) {
+        classDeclaration(vm);
+    } else if (match(TOKEN_FUN)) {
         funDeclaration(vm);
     } else if (match(TOKEN_VAR)) {
         varDeclaration(vm);
