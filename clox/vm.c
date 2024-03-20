@@ -312,6 +312,37 @@ for (;;) {
             *frame->closure->upvalues[slot]->location = peek(vm, 0);
             break;
         }
+        case OP_GET_PROPERTY: {
+            if (!IS_INSTANCE(peek(vm, 0))) {
+                runtimeError(vm, "Only instances have properties.");
+                return INTERPRET_RUNTIME_ERROR;
+            }
+
+            ObjInstance *instance = AS_INSTANCE(peek(vm, 0));
+            ObjString *name = READ_STRING();
+
+            Value value;
+            if (tableGet(&instance->fields, name, &value)) {
+                pop(vm);
+                push(vm, value);
+                break;
+            }
+
+            runtimeError(vm, "Undefined property '%s'.", name->chars);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        case OP_SET_PROPERTY: {
+            if (!IS_INSTANCE(peek(vm, 1))) {
+                runtimeError(vm, "Only instances have fields.");
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            ObjInstance *instance = AS_INSTANCE(peek(vm, 1));
+            tableSet(vm, &instance->fields, READ_STRING(), peek(vm, 0));
+            Value value = pop(vm);
+            pop(vm);
+            push(vm, value);
+            break;
+        }
         case OP_EQUAL: {
             Value b = pop(vm);
             Value a = pop(vm);

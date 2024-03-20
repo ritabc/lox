@@ -85,6 +85,7 @@ A separate metaclass exists for each class. It holds any static (class) methods 
         - roots (any object the VM can reach directly w/o going through another object's reference. Most roots are global vars or on the stack or upvalues)
         - any object referred to from a reachable object
     - When to run the GC? Use a self-adjusting heap. As the amount of live memory increases, collect less frequently to avoid sacrificing throughput by re-traversing the growing pile of objects. As the amount of live memory goes down, collect more frequently to not lose too much latency by waiting too long
+24. Classes, includeing Instances of classes, which can have fields added dynamically added at runtime using a hash table
 
 ### Additional features
 ###### generated from Challenges in text
