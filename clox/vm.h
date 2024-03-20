@@ -50,6 +50,8 @@ typedef struct VM {
     // A table to store strings for string interning (deduplication, as in, not duplicated) purposes
     Table strings;
 
+    ObjString* initString;
+
     struct ObjUpvalue* openUpvalues;
 
     size_t bytesAllocated;

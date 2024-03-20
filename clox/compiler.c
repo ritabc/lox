@@ -76,6 +76,7 @@ typedef struct {
 
 typedef enum {
     TYPE_FUNCTION,
+    TYPE_INITIALIZER,
     TYPE_METHOD,
     TYPE_SCRIPT
 } FunctionType;
@@ -202,7 +203,11 @@ static int emitJump(VM* vm, uint8_t instruction) {
 }
 
 static void emitReturn(VM* vm) {
-    emitByte(vm, OP_NIL);
+    if (current->type == TYPE_INITIALIZER) {
+        emitBytes(vm, OP_GET_LOCAL, 0);
+    } else {
+        emitByte(vm, OP_NIL);
+    }
     emitByte(vm, OP_RETURN);
 }
 
@@ -560,6 +565,10 @@ static void dot(VM* vm, bool canAssign) {
     if (canAssign && match(TOKEN_EQUAL)) {
         expression(vm);
         emitBytes(vm, OP_SET_PROPERTY, name);
+    } else if (match(TOKEN_LEFT_PAREN)) {
+        uint8_t argCount = argumentList(vm);
+        emitBytes(vm, OP_INVOKE, name);
+        emitByte(vm, argCount);
     } else {
         emitBytes(vm, OP_GET_PROPERTY, name);
     }
@@ -719,6 +728,9 @@ static void method(VM* vm) {
     uint8_t constant = identifierConstant(vm, &parser.previous);
 
     FunctionType type = TYPE_METHOD;
+    if (parser.previous.length == 4 && memcmp(parser.previous.start, "init", 4) == 0) {
+        type = TYPE_INITIALIZER;
+    }
     function(vm, type);
 
 
@@ -864,6 +876,9 @@ static void returnStatement(VM* vm) {
     if (match(TOKEN_SEMICOLON)) {
         emitReturn(vm);
     } else {
+        if (current->type == TYPE_INITIALIZER) {
+            error("Can't return a value from an initializer.");
+        }
         expression(vm);
         consume(TOKEN_SEMICOLON, "Expect ';' after return value.");
         emitByte(vm, OP_RETURN);

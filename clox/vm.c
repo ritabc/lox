@@ -80,12 +80,16 @@ void initVM(VM* vm, FILE* fout, FILE* ferr) {
     initTable(&vm->globals);
     initTable(&vm->strings);
 
+    vm->initString = NULL;
+    vm->initString = copyString(vm, "init", 4);
+
     defineNative(vm, "clock", clockNative);
 }
 
 void freeVM(VM* vm) {
     freeTable(vm, &vm->globals);
     freeTable(vm, &vm->strings);
+    vm->initString = NULL;
     freeObjects(vm);
 }
 
@@ -143,6 +147,13 @@ static bool callValue(VM* vm, Value callee, int argCount) {
             case OBJ_CLASS: {
                 ObjClass* klass = AS_CLASS(callee);
                 vm->stackTop[-argCount-1] = OBJ_VAL(newInstance(vm, klass));
+                Value initializer;
+                if (tableGet(&klass->methods, vm->initString, &initializer)) {
+                    return call(vm, AS_CLOSURE(initializer), argCount);
+                } else if (argCount != 0) {
+                    runtimeError(vm, "Expected 0 arguments but got %d.", argCount);
+                    return false;
+                }
                 return true;
             }
             case OBJ_CLOSURE:
@@ -163,6 +174,34 @@ static bool callValue(VM* vm, Value callee, int argCount) {
     // prevent user from calling non funcs, non classes like: true();
     runtimeError(vm, "Can only call functions and classes.");
     return false;
+}
+
+static bool invokeFromClass(VM* vm, ObjClass* klass, ObjString* name, int argCount) {
+    Value method;
+    if (!tableGet(&klass->methods, name, &method)) {
+        runtimeError(vm, "Undefined property '%s'", name->chars);
+        return false;
+    }
+    return call(vm, AS_CLOSURE(method), argCount);
+}
+
+static bool invoke(VM* vm, ObjString* name, int argCount) {
+    Value receiver = peek(vm, argCount);
+
+    if (!IS_INSTANCE(receiver)) {
+        runtimeError(vm, "Only instances have methods.");
+        return false;
+    }
+
+    ObjInstance* instance = AS_INSTANCE(receiver);
+
+    Value value;
+    if (tableGet(&instance->fields, name, &value)) {
+        vm->stackTop[-argCount - 1] = value;
+        return callValue(vm, value, argCount);
+    }
+
+    return invokeFromClass(vm, instance->klass, name, argCount);
 }
 
 static bool bindMethod(VM* vm, ObjClass* klass, ObjString* name) {
@@ -440,6 +479,15 @@ for (;;) {
         case OP_CALL: {
             int argCount = READ_BYTE();
             if (!callValue(vm, peek(vm, argCount), argCount)) {
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            frame = &vm->frames[vm->frameCount - 1];
+            break;
+        }
+        case OP_INVOKE: {
+            ObjString* method = READ_STRING();
+            int argCount = READ_BYTE();
+            if (!invoke(vm, method, argCount)) {
                 return INTERPRET_RUNTIME_ERROR;
             }
             frame = &vm->frames[vm->frameCount - 1];

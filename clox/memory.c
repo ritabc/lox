@@ -198,6 +198,7 @@ static void markRoots(VM* vm) {
 
     // compiler has/uses roots too
     markCompilerRoots(vm);
+    markObject(vm, (Obj*)vm->initString);
 }
 
 static void traceReferences(VM* vm) {
