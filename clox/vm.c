@@ -135,6 +135,11 @@ static bool call(VM* vm, ObjClosure* closure, int argCount) {
 static bool callValue(VM* vm, Value callee, int argCount) {
     if (IS_OBJ(callee)) {
         switch (OBJ_TYPE(callee)) {
+            case OBJ_BOUND_METHOD: {
+                ObjBoundMethod* bound = AS_BOUND_METHOD(callee);
+                vm->stackTop[-argCount - 1] = bound->receiver;
+                return call(vm, bound->method, argCount);
+            }
             case OBJ_CLASS: {
                 ObjClass* klass = AS_CLASS(callee);
                 vm->stackTop[-argCount-1] = OBJ_VAL(newInstance(vm, klass));
@@ -158,6 +163,20 @@ static bool callValue(VM* vm, Value callee, int argCount) {
     // prevent user from calling non funcs, non classes like: true();
     runtimeError(vm, "Can only call functions and classes.");
     return false;
+}
+
+static bool bindMethod(VM* vm, ObjClass* klass, ObjString* name) {
+    Value method;
+    if (!tableGet(&klass->methods, name, &method)) {
+        runtimeError(vm, "Undefined property '%s'.", name->chars);
+        return false;
+    }
+
+    ObjBoundMethod* bound = newBoundMethod(vm, peek(vm, 0), AS_CLOSURE(method));
+
+    pop(vm);
+    push(vm, OBJ_VAL(bound));
+    return true;
 }
 
 static ObjUpvalue* captureUpvalue(VM* vm, Value* local) {
@@ -194,6 +213,12 @@ static void closeUpvalues(VM* vm, Value* last) {
     }
 }
 
+static void defineMethod(VM* vm, ObjString* name) {
+    Value method = peek(vm, 0);
+    ObjClass* klass = AS_CLASS(peek(vm, 1));
+    tableSet(vm, &klass->methods, name, method);
+    pop(vm);
+}
 
 static bool isFalsey(Value value) {
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
@@ -322,14 +347,19 @@ for (;;) {
             ObjString *name = READ_STRING();
 
             Value value;
+
+            // first look for field with name
             if (tableGet(&instance->fields, name, &value)) {
                 pop(vm);
                 push(vm, value);
                 break;
             }
 
-            runtimeError(vm, "Undefined property '%s'.", name->chars);
-            return INTERPRET_RUNTIME_ERROR;
+            // then look for method with name
+            if (!bindMethod(vm, instance->klass, name)) {
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            break;
         }
         case OP_SET_PROPERTY: {
             if (!IS_INSTANCE(peek(vm, 1))) {
@@ -460,6 +490,9 @@ for (;;) {
         case OP_CLASS:
             push(vm, OBJ_VAL(newClass(vm, READ_STRING())));
             break;
+        case OP_METHOD:
+            defineMethod(vm, READ_STRING());
+            break;
     }
 }
 #undef READ_BYTE
@@ -470,17 +503,6 @@ for (;;) {
 }
 
 InterpretResult interpret(VM* vm, const char* source) {
-//    Chunk chunk;
-//    initChunk(&chunk);
-//
-//    if (!compile(vm, source)) {
-//        freeChunk(&chunk);
-//        return INTERPRET_COMPILE_ERROR;
-//    }
-//
-//    vm->chunk = &chunk;
-//    vm->ip = vm->chunk->code;
-
     ObjFunction* function = compile(vm, source);
     if (function == NULL) return INTERPRET_COMPILE_ERROR;
 

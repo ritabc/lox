@@ -89,9 +89,17 @@ static void blackenObject(VM* vm, Obj* object) {
     printf("\n");
 #endif
     switch (object->type) {
+        case OBJ_BOUND_METHOD: {
+            // trace but don't free bound method's references, since it doesn't own them
+            ObjBoundMethod* bound = (ObjBoundMethod*)object;
+            markValue(vm, bound->receiver);
+            markObject(vm, (Obj*)bound->method);
+            break;
+        }
         case OBJ_CLASS: {
             ObjClass* klass = (ObjClass*)object;
             markObject(vm, (Obj*)klass->name);
+            markTable(vm, &klass->methods);
             break;
         }
         case OBJ_CLOSURE: {
@@ -129,7 +137,12 @@ static void freeObject(VM* vm, Obj* object) {
     printf("%p free type %d\n", (void*)object, object->type);
 #endif
     switch (object->type) {
+        case OBJ_BOUND_METHOD:
+            FREE(vm, ObjBoundMethod, object);
+            break;
         case OBJ_CLASS: {
+            ObjClass* klass = (ObjClass*)object;
+            freeTable(vm, &klass->methods);
             FREE(vm, ObjClass, object);
             break;
         }

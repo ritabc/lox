@@ -76,6 +76,7 @@ typedef struct {
 
 typedef enum {
     TYPE_FUNCTION,
+    TYPE_METHOD,
     TYPE_SCRIPT
 } FunctionType;
 
@@ -104,8 +105,13 @@ typedef struct Compiler {
     VM* vm;
 } Compiler;
 
+typedef struct ClassCompiler {
+    struct ClassCompiler* enclosing;
+} ClassCompiler;
+
 Parser parser;
 Compiler* current = NULL; // this global variable isn't the best solution, especially if we were running in a multi-threaded app with multiple compilers running in parallel
+ClassCompiler* currentClass = NULL;
 
 // returns the address of the chunk owned by the function we're compiling atm
 static Chunk* currentChunk() {
@@ -244,8 +250,13 @@ static void initCompiler(Compiler* compiler, FunctionType type, VM* vm) {
     Local* local = &current->locals[current->localCount++];
     local->depth = 0;
     local->isCaptured = false;
-    local->name.start = "";
-    local->name.length = 0;
+    if (type != TYPE_FUNCTION) {
+        local->name.start = "this";
+        local->name.length = 4;
+    } else {
+        local->name.start = "";
+        local->name.length = 0;
+    }
 }
 
 static ObjFunction* endCompiler(VM* vm) {
@@ -505,6 +516,16 @@ static void variable(VM* vm, bool canAssign) {
     namedVariable(vm, parser.previous, canAssign);
 }
 
+// treat `this` as a lexically scoped local variable whose value gets magically initialized
+static void this_(VM* vm, bool canAssign) {
+    if (currentClass == NULL) {
+        error("Can't use 'this' outside of a class.");
+        return;
+    }
+
+    variable(vm, false);
+}
+
 // The left hand operator has already been compiled,
 // and the infix operator has already been consumed
 static void binary(VM* vm, bool canAssign) {
@@ -604,7 +625,7 @@ ParseRule rules[] = {
   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
   [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_THIS]          = {this_,    NULL,   PREC_NONE},
   [TOKEN_TRUE]          = {literal,  NULL,   PREC_NONE},
   [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},
@@ -687,16 +708,45 @@ static void function(VM* vm, FunctionType type) {
     }
 }
 
+static void method(VM* vm) {
+    // to define a new method, the VM needs 3 things:
+    // 1. method name
+    // 2. method body closure
+    // 3. class to bind the method to
+    consume(TOKEN_IDENTIFIER, "Expect method name.");
+    Token className = parser.previous;
+
+    uint8_t constant = identifierConstant(vm, &parser.previous);
+
+    FunctionType type = TYPE_METHOD;
+    function(vm, type);
+
+
+    emitBytes(vm,OP_METHOD, constant);
+}
+
 static void classDeclaration(VM* vm) {
     consume(TOKEN_IDENTIFIER, "Expect class name.");
+    Token className = parser.previous;
     uint8_t nameConstant = identifierConstant(vm, &parser.previous);
     declareVariable();
 
     emitBytes(vm, OP_CLASS, nameConstant);
     defineVariable(vm, nameConstant);
 
+    ClassCompiler classCompiler;
+    classCompiler.enclosing = currentClass;
+    currentClass = &classCompiler;
+
+    namedVariable(vm, className, false);
     consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+    while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+        method(vm);
+    }
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+    emitByte(vm, OP_POP);
+
+    currentClass = currentClass->enclosing;
 }
 
 static void funDeclaration(VM* vm) {
