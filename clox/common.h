@@ -9,6 +9,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define NAN_BOXING
+
 // when defined, use "debug" module to print out the chunk's bytecode
 #define DEBUG_PRINT_CODE
 

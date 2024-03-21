@@ -33,6 +33,17 @@ void freeValueArray(VM* vm, ValueArray* array) {
 }
 
 void printValue(Value value, FILE* fd) {
+#ifdef NAN_BOXING
+    if (IS_BOOL(value)) {
+        fprintf(fd, AS_BOOL(value) ? "true" : "false");
+    } else if (IS_NIL(value)) {
+        fprintf(fd, "nil");
+    } else if (IS_NUMBER(value)) {
+        fprintf(fd, "%g", AS_NUMBER(value));
+    } else if (IS_OBJ(value)) {
+        printObject(value, fd);
+    }
+#else
     switch (value.type) {
         case VAL_BOOL:
             fprintf(fd, AS_BOOL(value) ? "true" : "false");
@@ -41,9 +52,16 @@ void printValue(Value value, FILE* fd) {
         case VAL_NUMBER: fprintf(fd, "%g", AS_NUMBER(value)); break;
         case VAL_OBJ: printObject(value, fd); break;
     }
+#endif
 }
 
 bool valuesEqual(Value a, Value b) {
+#ifdef NAN_BOXING
+    if (IS_NUMBER(a) && IS_NUMBER(b)) {
+        return AS_NUMBER(a) == AS_NUMBER(b);
+    }
+    return a == b;
+#else
     if (a.type != b.type) return false;
     switch (a.type) {
         case VAL_BOOL:      return AS_BOOL(a) == AS_BOOL(b);
@@ -52,4 +70,5 @@ bool valuesEqual(Value a, Value b) {
         case VAL_OBJ:       return AS_OBJ(a) == AS_OBJ(b);
         default:            return false; // Unreachable
     }
+#endif
 }

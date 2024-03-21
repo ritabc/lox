@@ -86,6 +86,8 @@ A separate metaclass exists for each class. It holds any static (class) methods 
         - any object referred to from a reachable object
     - When to run the GC? Use a self-adjusting heap. As the amount of live memory increases, collect less frequently to avoid sacrificing throughput by re-traversing the growing pile of objects. As the amount of live memory goes down, collect more frequently to not lose too much latency by waiting too long
 24. Classes, including Instances of classes, which can have fields added dynamically added at runtime using a hash table, methods with 'this' bound to the instance the method was accessed from using 'Bound Methods'. ObjBoundMethod wraps the method closure and the receiver (this) together
+25. Add Optimization: remove frequent modulo operation, replace with fast bit manipulations instead
+26. Add Optimization: when appropriate, store values in IEEE 754 format
 
 ### Additional features
 ###### generated from Challenges in text
@@ -93,4 +95,3 @@ A separate metaclass exists for each class. It holds any static (class) methods 
 1. Instead of storing line numbers in an array the length of codes, where every element is the line number that code is on, use a run-length encoding scheme. 
    ** although this addition was reverted when chunks started being used for each function, instead of 1 chunk per file.
 1. Add testing framework (interpret_test.c)
-2. 
