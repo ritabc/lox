@@ -179,7 +179,7 @@ static bool callValue(VM* vm, Value callee, int argCount) {
 static bool invokeFromClass(VM* vm, ObjClass* klass, ObjString* name, int argCount) {
     Value method;
     if (!tableGet(&klass->methods, name, &method)) {
-        runtimeError(vm, "Undefined property '%s'", name->chars);
+        runtimeError(vm, "Undefined property '%s'.", name->chars);
         return false;
     }
     return call(vm, AS_CLOSURE(method), argCount);
@@ -344,7 +344,7 @@ for (;;) {
             ObjString* name = READ_STRING();
             Value value;
             if (!tableGet(&vm->globals, name, &value)) {
-                runtimeError(vm,"Undefinied variable '%s'.", name->chars);
+                runtimeError(vm,"Undefined variable '%s'.", name->chars);
                 return INTERPRET_RUNTIME_ERROR;
             }
             push(vm, value);
@@ -459,7 +459,7 @@ for (;;) {
             push(vm, BOOL_VAL(isFalsey(pop(vm))));
             break;
         case OP_NEGATE:
-            if (IS_NUMBER(peek(vm, 0))) {
+            if (!IS_NUMBER(peek(vm, 0))) {
                 runtimeError(vm, "Operand must be a number.");
                 return INTERPRET_RUNTIME_ERROR;
             }

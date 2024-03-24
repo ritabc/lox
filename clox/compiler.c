@@ -120,32 +120,32 @@ static Chunk* currentChunk() {
     return &current->function->chunk;
 }
 
-static void errorAt(Token* token, const char* message) {
+static void errorAt(VM* vm, Token* token, const char* message) {
     if (parser.panicMode) return;
     parser.panicMode = true;
-    fprintf(stderr, "[line %d] Error", token->line);
+    fprintf(vm->ferr, "[line %d] Error", token->line);
 
     if (token->type == TOKEN_EOF) {
-        fprintf(stderr, " at end");
+        fprintf(vm->ferr, " at end");
     } else if (token->type == TOKEN_ERROR) {
         // Nothing.
     } else {
-        fprintf(stderr, " at '%.*s'", token->length, token->start);
+        fprintf(vm->ferr, " at '%.*s'", token->length, token->start);
     }
 
-    fprintf(stderr, ": %s\n", message);
+    fprintf(vm->ferr, ": %s\n", message);
     parser.hadError = true;
 }
 
-static void error(const char* message) {
-    errorAt(&parser.previous, message);
+static void error(VM* vm, const char* message) {
+    errorAt(vm, &parser.previous, message);
 }
 
-static void errorAtCurrent(const char* message) {
-    errorAt(&parser.current, message);
+static void errorAtCurrent(VM* vm, const char* message) {
+    errorAt(vm, &parser.current, message);
 }
 
-static void advance() {
+static void advance(VM* vm) {
     parser.previous = parser.current;
 
     // keep looping and reporting errors
@@ -153,27 +153,27 @@ static void advance() {
         parser.current = scanToken();
         if (parser.current.type != TOKEN_ERROR) break;
 
-        errorAtCurrent(parser.current.start);
+        errorAtCurrent(vm, parser.current.start);
     }
 }
 
 // advances, but also validates whether the token has an expected type
-static void consume(TokenType type, const char* message) {
+static void consume(VM* vm, TokenType type, const char* message) {
     if (parser.current.type == type) {
-        advance();
+        advance(vm);
         return;
     }
 
-    errorAtCurrent(message);
+    errorAtCurrent(vm, message);
 }
 
 static bool check(TokenType type) {
     return parser.current.type == type;
 }
 
-static bool match(TokenType type) {
+static bool match(VM* vm, TokenType type) {
     if (!check(type)) return false;
-    advance();
+    advance(vm);
     return true;
 }
 
@@ -190,7 +190,7 @@ static void emitLoop(VM* vm, int loopStart) {
     emitByte(vm, OP_LOOP);
 
     int offset = currentChunk()->count - loopStart + 2;
-    if (offset > UINT16_MAX) error("Loop body too large.");
+    if (offset > UINT16_MAX) error(vm, "Loop body too large.");
 
     emitByte(vm, (offset >> 8) & 0xff);
     emitByte(vm, offset & 0xff);
@@ -215,7 +215,7 @@ static void emitReturn(VM* vm) {
 static uint8_t makeConstant(VM* vm, Value value) {
     int constant = addConstant(vm, currentChunk(), value);
     if (constant > UINT8_MAX) {
-        error("Too many constants in one chunk.");
+        error(vm, "Too many constants in one chunk.");
         return 0;
     }
 
@@ -226,12 +226,12 @@ static void emitConstant(VM* vm, Value value) {
     emitBytes(vm, OP_CONSTANT, makeConstant(vm, value));
 }
 
-static void patchJump(int offset) {
+static void patchJump(VM* vm, int offset) {
     // -2 to adjust for the bytecode for the jump offset itself
     int jump = currentChunk()->count - offset - 2;
 
     if (jump > UINT16_MAX) {
-        error("Too much code to jump over.");
+        error(vm, "Too much code to jump over.");
     }
 
     // replaces the temp op code bytes with the jumped amount
@@ -312,7 +312,7 @@ static bool identifiersEqual(Token* a, Token* b) {
     return memcmp(a->start, b->start, a->length) == 0;
 }
 
-static int resolveLocal(Compiler* compiler, Token* name) {
+static int resolveLocal(VM* vm, Compiler* compiler, Token* name) {
     for (int i = compiler->localCount - 1; i >= 0; i--) {
         Local* local = &compiler->locals[i];
         if (identifiersEqual(name, &local->name)) {
@@ -321,7 +321,7 @@ static int resolveLocal(Compiler* compiler, Token* name) {
                     { var a = "outer";
                         { var a = a; }}
                  */
-                error("Can't read local variable in its own initializer.");
+                error(vm, "Can't read local variable in its own initializer.");
             }
             return i;
         }
@@ -330,7 +330,7 @@ static int resolveLocal(Compiler* compiler, Token* name) {
 }
 
 // Upvalues used for closures
-static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
+static int addUpvalue(VM* vm, Compiler* compiler, uint8_t index, bool isLocal) {
     int upvalueCount = compiler->function->upvalueCount;
 
     // reuse upvalue index if we find an upvalue in the array whose slot index matches the one we're adding
@@ -342,7 +342,7 @@ static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
     }
 
     if (upvalueCount == UINT8_COUNT) {
-        error("Too many closure variables in function.");
+        error(vm, "Too many closure variables in function.");
         return 0;
     }
 
@@ -355,26 +355,26 @@ static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
 // If found, it returns an upvalue index for that variable
 // if not, returns -1
 // only called when we know the variable isn't in the current compiler
-static int resolveUpvalue(Compiler* compiler, Token* name) {
+static int resolveUpvalue(VM* vm, Compiler* compiler, Token* name) {
     if (compiler->enclosing == NULL) return -1;
 
-    int local = resolveLocal(compiler->enclosing, name);
+    int local = resolveLocal(vm, compiler->enclosing, name);
     if (local != -1) {
         compiler->enclosing->locals[local].isCaptured = true;
-        return addUpvalue(compiler, (uint8_t)local, true);
+        return addUpvalue(vm, compiler, (uint8_t)local, true);
     }
 
-    int upvalue = resolveUpvalue(compiler->enclosing, name);
+    int upvalue = resolveUpvalue(vm, compiler->enclosing, name);
     if (upvalue != -1) {
-        return addUpvalue(compiler, (uint8_t)upvalue, false);
+        return addUpvalue(vm, compiler, (uint8_t)upvalue, false);
     }
 
     return -1;
 }
 
-static void addLocal(Token name) {
+static void addLocal(VM* vm, Token name) {
     if (current->localCount == UINT8_COUNT) {
-        error("Too many local variables in function.");
+        error(vm, "Too many local variables in function.");
         return;
     }
 
@@ -386,7 +386,7 @@ static void addLocal(Token name) {
 
 // the function which tells the compiler to record the existence of the variable
 // only do this for locals, since global variables are late bound
-static void declareVariable() {
+static void declareVariable(VM* vm) {
     if (current->scopeDepth == 0) return;
 
     Token* name = &parser.previous;
@@ -400,11 +400,11 @@ static void declareVariable() {
         }
 
         if (identifiersEqual(name, &local->name)) {
-            error("Already a variable with this name in this scope.");
+            error(vm, "Already a variable with this name in this scope.");
         }
     }
 
-    addLocal(*name);
+    addLocal(vm, *name);
 }
 
 // consumes the identifier token for the variable name
@@ -412,9 +412,9 @@ static void declareVariable() {
 // if global: returns the constant table index where it was added
 // if local: returns 0 (dummy table index)
 static uint8_t parseVariable(VM* vm, const char* errorMessage) {
-    consume(TOKEN_IDENTIFIER, errorMessage);
+    consume(vm, TOKEN_IDENTIFIER, errorMessage);
 
-    declareVariable();
+    declareVariable(vm);
 
     // if the variable is local, exit.
     // We don't store local variable identifiers in the constant table
@@ -449,12 +449,12 @@ static uint8_t argumentList(VM* vm) {
             // Each of the following arg expressions generates code that leavees its value on the stack in preparation for the call
             expression(vm);
             if (argCount == 255) {
-                error("Can't have more than 255 arguments.");
+                error(vm, "Can't have more than 255 arguments.");
             }
             argCount++;
-        } while (match(TOKEN_COMMA));
+        } while (match(vm, TOKEN_COMMA));
     }
-    consume(TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
+    consume(vm, TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
     return argCount;
 }
 
@@ -464,14 +464,14 @@ static void and_(VM* vm, bool canAssign) {
     emitByte(vm, OP_POP);
     parsePrecedence(vm, PREC_AND);
 
-    patchJump(endJump);
+    patchJump(vm, endJump);
 }
 
 // assume the initial '(' has already been consumed
 // grouping is purely syntactic and has no runtime semantics and doesn't emit any bytecode on its own
 static void grouping(VM* vm, bool canAssign) {
     expression(vm);
-    consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
+    consume(vm, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
 static void number(VM* vm, bool canAssign) {
@@ -484,11 +484,11 @@ static void or_(VM* vm, bool canAssign) {
     int elseJump = emitJump(vm, OP_JUMP_IF_FALSE);
     int endJump = emitJump(vm, OP_JUMP);
 
-    patchJump(elseJump);
+    patchJump(vm, elseJump);
     emitByte(vm, OP_POP);
 
     parsePrecedence(vm, PREC_OR);
-    patchJump(endJump);
+    patchJump(vm, endJump);
 }
 
 // +1, -2 trims the quotation marks
@@ -498,11 +498,11 @@ static void string(VM* vm, bool canAssign) {
 
 static void namedVariable(VM* vm, Token name, bool canAssign) {
     uint8_t getOp, setOp;
-    int arg = resolveLocal(current, &name);
+    int arg = resolveLocal(vm, current, &name);
     if (arg != -1) {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
-    } else if ((arg = resolveUpvalue(current, &name)) != -1) {
+    } else if ((arg = resolveUpvalue(vm, current, &name)) != -1) {
         getOp = OP_GET_UPVALUE;
         setOp = OP_SET_UPVALUE;
     } else {
@@ -510,7 +510,7 @@ static void namedVariable(VM* vm, Token name, bool canAssign) {
         getOp = OP_GET_GLOBAL;
         setOp = OP_SET_GLOBAL;
     }
-    if (canAssign && match(TOKEN_EQUAL)) {
+    if (canAssign && match(vm, TOKEN_EQUAL)) {
         expression(vm);
         emitBytes(vm, setOp, (uint8_t)arg);
     } else {
@@ -531,17 +531,17 @@ static Token syntheticToken(const char* text) {
 
 static void super_(VM* vm, bool canAssign) {
     if (currentClass == NULL) {
-        error("Can't use 'super' outside of a class.");
+        error(vm, "Can't use 'super' outside of a class.");
     } else if (!currentClass->hasSuperclass) {
-        error("Can't user 'super' in a class with no superclass.");
+        error(vm, "Can't use 'super' in a class with no superclass.");
     }
 
-    consume(TOKEN_DOT, "Expect '.' after 'super'.");
-    consume(TOKEN_IDENTIFIER, "Expect superclass method name.");
+    consume(vm, TOKEN_DOT, "Expect '.' after 'super'.");
+    consume(vm, TOKEN_IDENTIFIER, "Expect superclass method name.");
     uint8_t name = identifierConstant(vm, &parser.previous);
 
     namedVariable(vm, syntheticToken("this"), false);
-    if (match(TOKEN_LEFT_PAREN)) {
+    if (match(vm, TOKEN_LEFT_PAREN)) {
         uint8_t argCount = argumentList(vm);
         namedVariable(vm, syntheticToken("super"), false);
         emitBytes(vm, OP_SUPER_INVOKE, name);
@@ -550,13 +550,12 @@ static void super_(VM* vm, bool canAssign) {
         namedVariable(vm, syntheticToken("super"), false);
         emitBytes(vm, OP_GET_SUPER, name);
     }
-    emitBytes(vm, OP_GET_SUPER, name);
 }
 
 // treat `this` as a lexically scoped local variable whose value gets magically initialized
 static void this_(VM* vm, bool canAssign) {
     if (currentClass == NULL) {
-        error("Can't use 'this' outside of a class.");
+        error(vm, "Can't use 'this' outside of a class.");
         return;
     }
 
@@ -591,13 +590,13 @@ static void call(VM* vm, bool canAssign) {
 }
 
 static void dot(VM* vm, bool canAssign) {
-    consume(TOKEN_IDENTIFIER, "Expect property name after '.'.");
+    consume(vm, TOKEN_IDENTIFIER, "Expect property name after '.'.");
     uint8_t name = identifierConstant(vm, &parser.previous);
 
-    if (canAssign && match(TOKEN_EQUAL)) {
+    if (canAssign && match(vm, TOKEN_EQUAL)) {
         expression(vm);
         emitBytes(vm, OP_SET_PROPERTY, name);
-    } else if (match(TOKEN_LEFT_PAREN)) {
+    } else if (match(vm, TOKEN_LEFT_PAREN)) {
         uint8_t argCount = argumentList(vm);
         emitBytes(vm, OP_INVOKE, name);
         emitByte(vm, argCount);
@@ -676,10 +675,10 @@ ParseRule rules[] = {
 
 // Parse until we get to a precedence lower than the given precedence
 static void parsePrecedence(VM* vm, Precedence precedence) {
-    advance();
+    advance(vm);
     ParseFn prefixRule = getRule(parser.previous.type)->prefix;
     if (prefixRule == NULL) {
-        error("Expect expression.");
+        error(vm, "Expect expression.");
         return;
     }
 
@@ -687,13 +686,13 @@ static void parsePrecedence(VM* vm, Precedence precedence) {
     prefixRule(vm, canAssign);
 
     while (precedence <= getRule(parser.current.type)->precedence) {
-        advance();
+        advance(vm);
         ParseFn infixRule = getRule(parser.previous.type)->infix;
         infixRule(vm, canAssign);
     }
 
-    if (canAssign && match(TOKEN_EQUAL)) {
-        error("Invalid assignment target.");
+    if (canAssign && match(vm, TOKEN_EQUAL)) {
+        error(vm, "Invalid assignment target.");
     }
 }
 
@@ -710,7 +709,7 @@ static void block(VM* vm) {
         declaration(vm);
     }
 
-    consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
+    consume(vm, TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
 static void function(VM* vm, FunctionType type) {
@@ -719,22 +718,22 @@ static void function(VM* vm, FunctionType type) {
     initCompiler(&compiler, type, vm);
     beginScope();
 
-    consume(TOKEN_LEFT_PAREN, "Expect '(' after function name.");
+    consume(vm, TOKEN_LEFT_PAREN, "Expect '(' after function name.");
 
     // handle Parameters, which are local variables declared in the outermost lexical scope of the func body
     if (!check(TOKEN_RIGHT_PAREN)) {
         do {
             current->function->arity++;
             if (current->function->arity > 255) {
-                errorAtCurrent("Can't have more than 255 parameters.");
+                errorAtCurrent(vm, "Can't have more than 255 parameters.");
             }
             uint8_t constant = parseVariable(vm, "Expect parameter name.");
             defineVariable(vm, constant);
-        } while (match(TOKEN_COMMA));
+        } while (match(vm, TOKEN_COMMA));
     }
 
-    consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
-    consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
+    consume(vm, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+    consume(vm, TOKEN_LEFT_BRACE, "Expect '{' before function body.");
     block(vm);
 
     // After reaching the end of the func's block body,
@@ -754,7 +753,7 @@ static void method(VM* vm) {
     // 1. method name
     // 2. method body closure
     // 3. class to bind the method to
-    consume(TOKEN_IDENTIFIER, "Expect method name.");
+    consume(vm, TOKEN_IDENTIFIER, "Expect method name.");
     Token className = parser.previous;
 
     uint8_t constant = identifierConstant(vm, &parser.previous);
@@ -770,10 +769,10 @@ static void method(VM* vm) {
 }
 
 static void classDeclaration(VM* vm) {
-    consume(TOKEN_IDENTIFIER, "Expect class name.");
+    consume(vm, TOKEN_IDENTIFIER, "Expect class name.");
     Token className = parser.previous;
     uint8_t nameConstant = identifierConstant(vm, &parser.previous);
-    declareVariable();
+    declareVariable(vm);
 
     emitBytes(vm, OP_CLASS, nameConstant);
     defineVariable(vm, nameConstant);
@@ -783,16 +782,16 @@ static void classDeclaration(VM* vm) {
     classCompiler.enclosing = currentClass;
     currentClass = &classCompiler;
 
-    if (match(TOKEN_LESS)) {
-        consume(TOKEN_IDENTIFIER, "Expect superclass name.");
+    if (match(vm, TOKEN_LESS)) {
+        consume(vm, TOKEN_IDENTIFIER, "Expect superclass name.");
         variable(vm, false);
 
         if (identifiersEqual(&className, &parser.previous)) {
-            error("A class can't inherit from itself.");
+            error(vm, "A class can't inherit from itself.");
         }
 
         beginScope();
-        addLocal(syntheticToken("super"));
+        addLocal(vm, syntheticToken("super"));
         defineVariable(vm, 0);
 
         namedVariable(vm, className, false);
@@ -801,11 +800,11 @@ static void classDeclaration(VM* vm) {
     }
 
     namedVariable(vm, className, false);
-    consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+    consume(vm, TOKEN_LEFT_BRACE, "Expect '{' before class body.");
     while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
         method(vm);
     }
-    consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+    consume(vm, TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
     emitByte(vm, OP_POP);
 
     if (classCompiler.hasSuperclass) {
@@ -825,29 +824,29 @@ static void funDeclaration(VM* vm) {
 static void varDeclaration(VM* vm) {
     uint8_t global = parseVariable(vm, "Expect variable name.");
 
-    if (match(TOKEN_EQUAL)) {
+    if (match(vm, TOKEN_EQUAL)) {
         expression(vm);
     } else {
         // if user doesn't initialize the var, do it for them, init-ing it to nil.
         emitByte(vm, OP_NIL);
     }
-    consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+    consume(vm, TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
 
     defineVariable(vm, global);
 }
 
 static void expressionStatement(VM* vm) {
     expression(vm);
-    consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
+    consume(vm, TOKEN_SEMICOLON, "Expect ';' after expression.");
     emitByte(vm, OP_POP);
 }
 
 static void forStatement(VM* vm) {
     beginScope(); // necessary for var declared in for loop - that var should be scoped to the loop body
-    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
-    if (match(TOKEN_SEMICOLON)) {
+    consume(vm, TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+    if (match(vm, TOKEN_SEMICOLON)) {
         // No initializer
-    } else if (match(TOKEN_VAR)) {
+    } else if (match(vm, TOKEN_VAR)) {
         varDeclaration(vm);
     } else {
         expressionStatement(vm);
@@ -855,9 +854,9 @@ static void forStatement(VM* vm) {
 
     int loopStart = currentChunk()->count;
     int exitJump = -1;
-    if (!match(TOKEN_SEMICOLON)) {
+    if (!match(vm, TOKEN_SEMICOLON)) {
         expression(vm);
-        consume(TOKEN_SEMICOLON, "Expect ';' after loop condition.");
+        consume(vm, TOKEN_SEMICOLON, "Expect ';' after loop condition.");
 
         // Jump out of the loop if the condition is false.
         exitJump = emitJump(vm, OP_JUMP_IF_FALSE);
@@ -866,16 +865,16 @@ static void forStatement(VM* vm) {
 
     // Since we only make a single pass, we compile the increment clause after we encounter it.
     // We'll jump over the increment, run the body, jump back up to the increment, run it, then go to the next iteration
-    if (!match(TOKEN_RIGHT_PAREN)) {
+    if (!match(vm, TOKEN_RIGHT_PAREN)) {
         int bodyJump = emitJump(vm, OP_JUMP);
         int incrementStart = currentChunk()->count;
         expression(vm);
         emitByte(vm, OP_POP);
-        consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+        consume(vm, TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
 
         emitLoop(vm, loopStart);
         loopStart = incrementStart;
-        patchJump(bodyJump);
+        patchJump(vm, bodyJump);
     }
 
 
@@ -883,7 +882,7 @@ static void forStatement(VM* vm) {
     emitLoop(vm, loopStart);
 
     if (exitJump != -1) {
-        patchJump(exitJump);
+        patchJump(vm, exitJump);
         emitByte(vm, OP_POP); // Condition
     }
 
@@ -891,11 +890,11 @@ static void forStatement(VM* vm) {
 }
 
 static void ifStatement(VM* vm) {
-    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+    consume(vm, TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
     // Put condition expression on top of stack,
     // so we can use it to determine whether to execute the then branch or skip it, at runtime
     expression(vm);
-    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+    consume(vm, TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
 
     // Use backpatching: emit the half finished jump instruction 1st with a placeholder offset operand (keep track of where that is)
     // emitJump emits the given instruction, then 2 placeholder byte instructions
@@ -908,42 +907,42 @@ static void ifStatement(VM* vm) {
     int elseJump = emitJump(vm, OP_JUMP);
 
     // Then, after compiling the then body, we'll know how far to jump, so replace it with the complete instruction
-    patchJump(thenJump);
+    patchJump(vm, thenJump);
 
     // if the condition is falsey, pop at the beginning of the else branch
     emitByte(vm, OP_POP);
 
-    if (match(TOKEN_ELSE)) statement(vm);
-    patchJump(elseJump);
+    if (match(vm, TOKEN_ELSE)) statement(vm);
+    patchJump(vm, elseJump);
 }
 
 static void printStatement(VM* vm) {
     expression(vm);
-    consume(TOKEN_SEMICOLON, "Expect ';' after value.");
+    consume(vm, TOKEN_SEMICOLON, "Expect ';' after value.");
     emitByte(vm, OP_PRINT);
 }
 
 static void returnStatement(VM* vm) {
     if (current->type == TYPE_SCRIPT) {
-        error("Can't return from top-level code.");
+        error(vm, "Can't return from top-level code.");
     }
-    if (match(TOKEN_SEMICOLON)) {
+    if (match(vm, TOKEN_SEMICOLON)) {
         emitReturn(vm);
     } else {
         if (current->type == TYPE_INITIALIZER) {
-            error("Can't return a value from an initializer.");
+            error(vm, "Can't return a value from an initializer.");
         }
         expression(vm);
-        consume(TOKEN_SEMICOLON, "Expect ';' after return value.");
+        consume(vm, TOKEN_SEMICOLON, "Expect ';' after return value.");
         emitByte(vm, OP_RETURN);
     }
 }
 
 static void whileStatement(VM* vm) {
     int loopStart = currentChunk()->count;
-    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
+    consume(vm, TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
     expression(vm);
-    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+    consume(vm, TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
 
     int exitJump = emitJump(vm, OP_JUMP_IF_FALSE);
     emitByte(vm, OP_POP);
@@ -952,11 +951,11 @@ static void whileStatement(VM* vm) {
     // jump backwards
     emitLoop(vm, loopStart);
 
-    patchJump(exitJump);
+    patchJump(vm, exitJump);
     emitByte(vm, OP_POP);
 }
 
-static void synchronize() {
+static void synchronize(VM* vm) {
     parser.panicMode = false;
 
     // Skip tokens until we reach something that looks like a statement boundary - either we just passed a semicolon, or the subsequent token is one that begins a statemetn
@@ -976,36 +975,36 @@ static void synchronize() {
                 ; // Do nothing
         }
 
-        advance();
+        advance(vm);
     }
 }
 
 static void declaration(VM* vm) {
-    if (match(TOKEN_CLASS)) {
+    if (match(vm, TOKEN_CLASS)) {
         classDeclaration(vm);
-    } else if (match(TOKEN_FUN)) {
+    } else if (match(vm, TOKEN_FUN)) {
         funDeclaration(vm);
-    } else if (match(TOKEN_VAR)) {
+    } else if (match(vm, TOKEN_VAR)) {
         varDeclaration(vm);
     } else {
         statement(vm);
     }
 
-    if (parser.panicMode) synchronize();
+    if (parser.panicMode) synchronize(vm);
 }
 
 static void statement(VM* vm) {
-    if (match(TOKEN_PRINT)) {
+    if (match(vm, TOKEN_PRINT)) {
         printStatement(vm);
-    } else if (match(TOKEN_FOR)) {
+    } else if (match(vm, TOKEN_FOR)) {
         forStatement(vm);
-    } else if (match(TOKEN_IF)) {
+    } else if (match(vm, TOKEN_IF)) {
         ifStatement(vm);
-    } else if (match(TOKEN_RETURN)) {
+    } else if (match(vm, TOKEN_RETURN)) {
         returnStatement(vm);
-    } else if (match(TOKEN_WHILE)) {
+    } else if (match(vm, TOKEN_WHILE)) {
         whileStatement(vm);
-    } else if (match(TOKEN_LEFT_BRACE)) {
+    } else if (match(vm, TOKEN_LEFT_BRACE)) {
         beginScope();
         block(vm);
         endScope(vm);
@@ -1023,9 +1022,9 @@ ObjFunction* compile(VM* vm, const char* source) {
     parser.hadError = false;
     parser.panicMode = false;
 
-    advance();
+    advance(vm);
 
-    while (!match(TOKEN_EOF)) {
+    while (!match(vm, TOKEN_EOF)) {
         declaration(vm);
     }
 

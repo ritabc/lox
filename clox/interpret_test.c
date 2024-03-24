@@ -11,7 +11,7 @@
 #include "vm.h"
 #include "memory.h"
 
-#define TEST_FILE_COUNTS 25
+#define TEST_FILE_COUNTS 246
 
 typedef struct {
     char* bufp;
@@ -119,10 +119,20 @@ static void getExpectedIfAnyFromSourceLine(char* sourceLine, ExpectedArray* exps
     expectPrefixLen = strlen(expectErrorAtPrefix);
     char* expectErrorAt = strcasestr(comment, expectErrorAtPrefix);
     if (expectErrorAt != NULL) {
-        ExpectedLine* expected = newExpectedLine(EXP_ERROR, comment, 0, strlen(comment));
+        ExpectedLine* expected = newExpectedLine(EXP_ERROR, comment, 3, strlen(comment));
         addToExpecteds(exps, expected);
         return;
     }
+
+    char* errorPrefix = "Error: ";
+    expectPrefixLen = strlen(errorPrefix);
+    char* error = strcasestr(comment, errorPrefix);
+    if (error != NULL) {
+        ExpectedLine* expected = newExpectedLine(EXP_ERROR, comment, 3, strlen(comment));
+        addToExpecteds(exps, expected);
+        return;
+    }
+
 
     // Eg: "expect 1" --> just want value
     char* expectPrefix = "expect: ";
@@ -237,7 +247,6 @@ static void getExpectedStrings(ExpectedArray* exps, MemBuf outExp, MemBuf errExp
             case EXP_STACK_TRACE_ERROR:
                 fprintf(errExp.fptr, "%s", exps->outLines[i].output);
                 free(exps->outLines[i].output);
-                free(&exps->outLines[i]);
                 break;
         }
     }
@@ -276,6 +285,30 @@ UTEST_I_SETUP(FixtureData) {
     utest_fixture->expectedsForCurrFile = &exps;
     printf("Test: %s (%i)\n", testPaths[utest_index], (u_int32_t) utest_index);
 }
+char* getFirstLineOnly(char* errActualMultipleLines) {
+    // find index of first '\n'
+    char* firstNewline = strchr(errActualMultipleLines, '\n');
+
+    // if found, add a '\0' after it
+    if (firstNewline) {
+        uint16_t firstNewline_i = firstNewline - errActualMultipleLines;
+        errActualMultipleLines[firstNewline_i+1] = '\0';
+    }
+
+    return errActualMultipleLines;
+}
+
+char* stripLineNumber(char* errActualWithLineInfo) {
+    // find index of ']'
+    char* rightBracket = strchr(errActualWithLineInfo, ']');
+
+    // if found, return char* from that index+2
+    if (rightBracket) {
+        return rightBracket + 2;
+    } else {
+        return errActualWithLineInfo;
+    }
+}
 
 UTEST_I_TEARDOWN(FixtureData) {
     char* source = parseFileForTesting(testPaths[utest_index], utest_fixture->expectedsForCurrFile);
@@ -287,8 +320,15 @@ UTEST_I_TEARDOWN(FixtureData) {
     fflush(errActual.fptr);
     fflush(outExpected.fptr);
     fflush(errExpected.fptr);
+
+    // errActual.bufp could be multiple lines. We only care about the first one.
+    char* errActualSingleLine = getFirstLineOnly(errActual.bufp);
+
+    // errActualSingleLine could start with "[line #]" which we don't actually care about in this context. strip it before comparing to outExpected
+    char* errActualWithoutLineNumber = stripLineNumber(errActualSingleLine);
+
     EXPECT_STREQ(outExpected.bufp, outActual.bufp);
-    EXPECT_STREQ(errExpected.bufp, errActual.bufp);
+    EXPECT_STREQ(errExpected.bufp, errActualWithoutLineNumber);
 
     fclose(outActual.fptr);
     fclose(errActual.fptr);
@@ -302,7 +342,6 @@ UTEST_I_TEARDOWN(FixtureData) {
 
 UTEST_I(FixtureData, LoxTest, TEST_FILE_COUNTS) {}
 
-
 UTEST_STATE();
 
 int main(int argc, const char* argv[]) {
@@ -313,6 +352,7 @@ int main(int argc, const char* argv[]) {
 
     // If running/debugging from clion:
     getTestFilepaths("../test", testPaths);
+
     // If running with leaks: ($ leaks --atExit -- /Users/rita/Documents/Projects-Code/teachYourselfCSdotcom/08_languages/lox/clox/cmake-build-leaks/integrationTests)
 //    getTestFilepaths("./test", testPaths);
 
